@@ -19,6 +19,11 @@ import '../../features/quran/domain/usecases/mushaf_usecases.dart';
 import '../../features/quran/presentation/cubit/surah_list_cubit.dart';
 import '../../features/quran/presentation/cubit/surah_reader_cubit.dart';
 import '../../features/quran/presentation/cubit/mushaf_cubit.dart';
+import '../../features/adhkar/data/datasources/adhkar_datasource.dart';
+import '../../features/adhkar/data/repositories/adhkar_repository_impl.dart';
+import '../../features/adhkar/domain/repositories/adhkar_repository.dart';
+import '../../features/adhkar/domain/usecases/adhkar_usecases.dart';
+import '../../features/adhkar/presentation/cubit/adhkar_reader_cubit.dart';
 import '../../features/qibla/data/datasources/qibla_local_datasource.dart';
 import '../../features/qibla/data/repositories/qibla_repository_impl.dart';
 import '../../features/qibla/domain/repositories/qibla_repository.dart';
@@ -42,6 +47,7 @@ Future<void> initDependencies() async {
   _initHome();
   _initQuran();
   _initQibla();
+  _initAdhkar();
 }
 
 void _initHome() {
@@ -92,4 +98,12 @@ void _initQibla() {
       () => QiblaRepositoryImpl(sl()));
   sl.registerLazySingleton<GetQiblaData>(() => GetQiblaData(sl()));
   sl.registerFactory<QiblaCubit>(() => QiblaCubit(sl()));
+}
+
+void _initAdhkar() {
+  sl.registerLazySingleton<AdhkarDatasource>(() => AdhkarDatasource());
+  sl.registerLazySingleton<AdhkarRepository>(
+      () => AdhkarRepositoryImpl(sl()));
+  sl.registerLazySingleton<GetAdhkar>(() => GetAdhkar(sl()));
+  sl.registerFactory<AdhkarReaderCubit>(() => AdhkarReaderCubit(sl()));
 }

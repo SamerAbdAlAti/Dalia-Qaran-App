@@ -8,6 +8,8 @@ import '../../../../core/utils/arabic_utils.dart';
 import '../../../../core/utils/hijri_date.dart';
 import '../../domain/entities/prayer_times_entity.dart';
 import '../cubit/home_cubit.dart';
+import '../../../adhkar/domain/entities/zikr_entity.dart';
+import '../../../adhkar/presentation/pages/zikr_reader_page.dart';
 
 // ─── Page ───
 
@@ -252,6 +254,10 @@ class _LoadedView extends StatelessWidget {
           SliverPadding(
             padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
             sliver: const SliverToBoxAdapter(child: _VerseOfDayCard()),
+          ),
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
+            sliver: const SliverToBoxAdapter(child: _AdhkarCard()),
           ),
           SliverPadding(
             padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
@@ -699,6 +705,143 @@ class _VerseOfDayCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Adhkar Card ───
+
+class _AdhkarCard extends StatelessWidget {
+  const _AdhkarCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withAlpha(10),
+              blurRadius: 8,
+              offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 8.h),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'أذكاري اليومية',
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 1, color: colors.divider),
+          Padding(
+            padding: EdgeInsets.all(12.r),
+            child: Row(
+              children: [
+                _AdhkarButton(
+                  label: 'أذكار الصباح',
+                  icon: Icons.wb_sunny_outlined,
+                  color: const Color(0xFFE67E22),
+                  bg: const Color(0xFFFFF3E0),
+                  category: ZikrCategory.morning,
+                ),
+                SizedBox(width: 8.w),
+                _AdhkarButton(
+                  label: 'أذكار المساء',
+                  icon: Icons.nights_stay_outlined,
+                  color: const Color(0xFF5C6BC0),
+                  bg: const Color(0xFFE8EAF6),
+                  category: ZikrCategory.evening,
+                ),
+                SizedBox(width: 8.w),
+                _AdhkarButton(
+                  label: 'بعد الصلاة',
+                  icon: Icons.mosque_outlined,
+                  color: AppColors.primary,
+                  bg: const Color(0xFFE8F5E9),
+                  category: ZikrCategory.afterPrayer,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdhkarButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Color bg;
+  final ZikrCategory category;
+
+  const _AdhkarButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.bg,
+    required this.category,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ZikrReaderPage(category: category),
+          ),
+        ),
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 14.h),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40.r,
+                height: 40.r,
+                decoration: BoxDecoration(
+                  color: bg,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 20.r),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w600,
+                  color: colors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

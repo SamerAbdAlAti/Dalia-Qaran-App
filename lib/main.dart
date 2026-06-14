@@ -24,12 +24,12 @@ Future<void> main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.dark,
-    systemNavigationBarColor: Colors.white,
-    systemNavigationBarIconBrightness: Brightness.dark,
-  ));
+  // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+  //   statusBarColor: Colors.transparent,
+  //   statusBarIconBrightness: Brightness.dark,
+  //   systemNavigationBarColor: Colors.white,
+  //   systemNavigationBarIconBrightness: Brightness.dark,
+  // ));
 
   await initObjectboxStore();
   await initDependencies();
