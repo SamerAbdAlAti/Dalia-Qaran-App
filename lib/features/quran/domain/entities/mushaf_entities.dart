@@ -1,3 +1,44 @@
+// ─── Line (for exact Mushaf rendering) ───
+
+enum MushafLineType {
+  normal,    // آيات عادية
+  basmala,   // البسملة
+  surahName, // اسم السورة
+  centered,  // أي سطر مركزي
+}
+
+class MushafLine {
+  final int lineNumber;
+  final String text;
+  final bool isCentered;
+  final MushafLineType type;
+
+  const MushafLine({
+    required this.lineNumber,
+    required this.text,
+    this.isCentered = false,
+    this.type = MushafLineType.normal,
+  });
+
+  factory MushafLine.fromJson(Map<String, dynamic> j) {
+    final typeStr = (j['type'] as String?) ?? 'normal';
+    final t = switch (typeStr) {
+      'basmala' => MushafLineType.basmala,
+      'surah_name' => MushafLineType.surahName,
+      'centered' => MushafLineType.centered,
+      _ => MushafLineType.normal,
+    };
+    return MushafLine(
+      lineNumber: (j['l'] as int?) ?? 1,
+      text: (j['t'] as String?) ?? '',
+      isCentered: (j['c'] as bool?) ?? (t != MushafLineType.normal),
+      type: t,
+    );
+  }
+}
+
+// ─── Ayah (existing) ───
+
 class MushafAyahEntity {
   final int surahId;
   final int ayahNum;
@@ -35,11 +76,17 @@ class MushafPageEntity {
   final int juzNumber;
   final List<MushafAyahEntity> ayahs;
 
+  /// لو موجودة → نعرض سطراً سطراً مطابقاً للمصحف الشريف
+  final List<MushafLine>? lines;
+
   const MushafPageEntity({
     required this.pageNumber,
     required this.juzNumber,
     required this.ayahs,
+    this.lines,
   });
+
+  bool get hasLines => lines != null && lines!.isNotEmpty;
 
   List<int> get surahIds {
     final seen = <int>{};

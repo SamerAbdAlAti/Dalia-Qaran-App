@@ -41,6 +41,8 @@ dependencies:
   # Local Notifications (prayer time alerts)
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
+  flutter_timezone: ^3.0.0
+  home_widget: ^0.7.0
 
   # Arabic Fonts — Scheherazade New for Quran text
   google_fonts: ^6.2.1
@@ -53,6 +55,10 @@ dependencies:
   flutter_native_splash: ^2.4.8
   workmanager: ^0.9.0+3
   audioplayers: ^6.7.1
+
+  # File picker + path (custom notification sound)
+  file_picker: ^8.1.6
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

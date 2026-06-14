@@ -1,37 +1,33 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import '../constants/app_constants.dart';
+import 'platform_service.dart';
 
-/// تعريف أصوات التنبيه المتاحة في التطبيق
+// ─── Available sounds ───
+
 class PrayerSound {
   final String id;
   final String nameAr;
-
-  /// اسم الملف في android/app/src/main/res/raw/ بدون امتداد
-  final String rawFileName;
-
-  /// مسار الملف في assets للمعاينة داخل التطبيق
-  final String assetPath;
+  final String rawFileName; // res/raw/ (empty = system default)
+  final String assetPath;  // assets/ (empty = system default)
+  final bool isCustom;
 
   const PrayerSound({
     required this.id,
     required this.nameAr,
-    required this.rawFileName,
-    required this.assetPath,
+    this.rawFileName = '',
+    this.assetPath = '',
+    this.isCustom = false,
   });
 }
 
-/// قائمة الأصوات المدمجة — أضف ملفات .mp3 في:
-///   assets/sounds/  (للمعاينة)
-///   android/app/src/main/res/raw/  (للتنبيه)
 const List<PrayerSound> kPrayerSounds = [
-  PrayerSound(
-    id: 'default',
-    nameAr: 'نغمة النظام',
-    rawFileName: '',
-    assetPath: '',
-  ),
+  PrayerSound(id: 'default', nameAr: 'نغمة النظام'),
   PrayerSound(
     id: 'azan_makkah',
     nameAr: 'أذان مكة المكرمة',
@@ -62,9 +58,12 @@ const List<PrayerSound> kPrayerSounds = [
     rawFileName: 'beep_soft',
     assetPath: 'assets/sounds/beep_soft.mp3',
   ),
+  // مخصص — يُضاف ديناميكياً في الواجهة
+  PrayerSound(id: 'custom', nameAr: 'نغمة مخصصة', isCustom: true),
 ];
 
-// ─── UX: مدة التذكير قبل الصلاة ───
+// ─── Reminder offset ───
+
 enum ReminderOffset {
   none(0, 'لا تذكير'),
   fiveMin(5, '٥ دقائق قبل'),
@@ -77,16 +76,24 @@ enum ReminderOffset {
   const ReminderOffset(this.minutes, this.label);
 }
 
+// ─── Service ───
+
 class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool _initialized = false;
 
-  // ─── Initialization ───
+  static const _bgChannelId = 'daliya_background';
+  static const _bgChannelName = 'الخدمة في الخلفية';
+
+  // ─── Init ───
 
   static Future<void> init() async {
     if (_initialized) return;
-
     tz.initializeTimeZones();
+    try {
+      final tzName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(tzName));
+    } catch (_) {}
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings(
@@ -99,40 +106,107 @@ class NotificationService {
       const InitializationSettings(android: android, iOS: ios),
     );
 
+    // Default channel
     await _createNotificationChannel(soundId: 'default');
+
+    // Background / persistent notification channel (low importance)
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(const AndroidNotificationChannel(
+          _bgChannelId,
+          _bgChannelName,
+          description: 'إشعار دائم يُبقي التطبيق نشطاً في الخلفية',
+          importance: Importance.min,
+          playSound: false,
+          enableVibration: false,
+          showBadge: false,
+        ));
 
     _initialized = true;
   }
 
-  // ─── Channel per sound (Android requires channel per custom sound) ───
+  // ─── Channel management ───
 
   static Future<void> _createNotificationChannel({
     required String soundId,
+    String? customSoundUri,
   }) async {
-    final sound = soundId == 'default'
-        ? null
-        : RawResourceAndroidNotificationSound(
-            kPrayerSounds.firstWhere((s) => s.id == soundId).rawFileName,
-          );
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin == null) return;
 
-    final channel = AndroidNotificationChannel(
-      soundId == 'default'
-          ? AppConstants.notifChannelId
-          : '${AppConstants.notifChannelId}_$soundId',
+    AndroidNotificationSound? sound;
+    if (soundId == 'custom' && customSoundUri != null) {
+      sound = UriAndroidNotificationSound(customSoundUri);
+    } else if (soundId != 'default') {
+      final match = kPrayerSounds.where((s) => s.id == soundId).firstOrNull;
+      if (match != null && match.rawFileName.isNotEmpty) {
+        sound = RawResourceAndroidNotificationSound(match.rawFileName);
+      }
+    }
+
+    final channelId = _channelIdFor(soundId, customSoundUri);
+    await androidPlugin.createNotificationChannel(AndroidNotificationChannel(
+      channelId,
       AppConstants.notifChannelName,
       description: 'تنبيهات أوقات الصلاة',
       importance: Importance.high,
       sound: sound,
       playSound: true,
-    );
-
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+    ));
   }
 
-  // ─── Schedule a single prayer notification ───
+  static String _channelIdFor(String soundId, String? customUri) {
+    if (soundId == 'custom') {
+      // channel ID based on hash of URI so different files get different channels
+      return '${AppConstants.notifChannelId}_custom_${customUri.hashCode.abs()}';
+    }
+    if (soundId == 'default') return AppConstants.notifChannelId;
+    return '${AppConstants.notifChannelId}_$soundId';
+  }
+
+  // ─── Schedule all 5 prayers ───
+
+  static Future<void> scheduleAllPrayers({
+    required Map<String, DateTime> prayerTimes,
+    required Map<String, bool> enabledPrayers,
+    required String soundId,
+    required ReminderOffset offset,
+    required bool vibrate,
+    String? customSoundUri,
+  }) async {
+    await _createNotificationChannel(
+        soundId: soundId, customSoundUri: customSoundUri);
+    await cancelAllPrayers();
+
+    final prayers = {
+      'الفجر': (AppConstants.notifFajr, prayerTimes['الفجر']),
+      'الظهر': (AppConstants.notifDhuhr, prayerTimes['الظهر']),
+      'العصر': (AppConstants.notifAsr, prayerTimes['العصر']),
+      'المغرب': (AppConstants.notifMaghrib, prayerTimes['المغرب']),
+      'العشاء': (AppConstants.notifIsha, prayerTimes['العشاء']),
+    };
+
+    for (final entry in prayers.entries) {
+      final name = entry.key;
+      final (id, time) = entry.value;
+      final enabled = enabledPrayers[name] ?? true;
+      if (!enabled || time == null) continue;
+
+      await schedulePrayer(
+        id: id,
+        prayerName: name,
+        prayerTime: time,
+        soundId: soundId,
+        offset: offset,
+        vibrate: vibrate,
+        customSoundUri: customSoundUri,
+      );
+    }
+  }
+
+  // ─── Schedule single prayer ───
 
   static Future<void> schedulePrayer({
     required int id,
@@ -141,30 +215,22 @@ class NotificationService {
     required String soundId,
     required ReminderOffset offset,
     required bool vibrate,
+    String? customSoundUri,
   }) async {
     final notifyAt = prayerTime.subtract(Duration(minutes: offset.minutes));
     if (notifyAt.isBefore(DateTime.now())) return;
 
-    final channelId = soundId == 'default'
-        ? AppConstants.notifChannelId
-        : '${AppConstants.notifChannelId}_$soundId';
+    final channelId = _channelIdFor(soundId, customSoundUri);
 
-    final sound = soundId == 'default'
-        ? null
-        : RawResourceAndroidNotificationSound(
-            kPrayerSounds.firstWhere((s) => s.id == soundId).rawFileName,
-          );
-
-    final androidDetails = AndroidNotificationDetails(
-      channelId,
-      AppConstants.notifChannelName,
-      importance: Importance.high,
-      priority: Priority.high,
-      sound: sound,
-      enableVibration: vibrate,
-      playSound: true,
-      category: AndroidNotificationCategory.alarm,
-    );
+    AndroidNotificationSound? sound;
+    if (soundId == 'custom' && customSoundUri != null) {
+      sound = UriAndroidNotificationSound(customSoundUri);
+    } else if (soundId != 'default') {
+      final match = kPrayerSounds.where((s) => s.id == soundId).firstOrNull;
+      if (match != null && match.rawFileName.isNotEmpty) {
+        sound = RawResourceAndroidNotificationSound(match.rawFileName);
+      }
+    }
 
     final title = offset == ReminderOffset.none
         ? 'حان وقت $prayerName'
@@ -175,52 +241,25 @@ class NotificationService {
       title,
       'داليا — أوقات الصلاة',
       tz.TZDateTime.from(notifyAt, tz.local),
-      NotificationDetails(android: androidDetails),
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          channelId,
+          AppConstants.notifChannelName,
+          importance: Importance.high,
+          priority: Priority.high,
+          sound: sound,
+          enableVibration: vibrate,
+          playSound: true,
+          category: AndroidNotificationCategory.alarm,
+        ),
+      ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
-  // ─── Schedule all 5 prayers for a day ───
-
-  static Future<void> scheduleAllPrayers({
-    required Map<String, DateTime> prayerTimes,
-    required Map<String, bool> enabledPrayers,
-    required String soundId,
-    required ReminderOffset offset,
-    required bool vibrate,
-  }) async {
-    await _createNotificationChannel(soundId: soundId);
-    await cancelAllPrayers();
-
-    final prayers = {
-      'الفجر': (AppConstants.notifFajr, prayerTimes['fajr']),
-      'الظهر': (AppConstants.notifDhuhr, prayerTimes['dhuhr']),
-      'العصر': (AppConstants.notifAsr, prayerTimes['asr']),
-      'المغرب': (AppConstants.notifMaghrib, prayerTimes['maghrib']),
-      'العشاء': (AppConstants.notifIsha, prayerTimes['isha']),
-    };
-
-    for (final entry in prayers.entries) {
-      final name = entry.key;
-      final (id, time) = entry.value;
-      final enabled = enabledPrayers[name] ?? true;
-
-      if (enabled && time != null) {
-        await schedulePrayer(
-          id: id,
-          prayerName: name,
-          prayerTime: time,
-          soundId: soundId,
-          offset: offset,
-          vibrate: vibrate,
-        );
-      }
-    }
-  }
-
-  // ─── Cancel ───
+  // ─── Cancel prayers ───
 
   static Future<void> cancelAllPrayers() async {
     for (final id in [
@@ -234,21 +273,76 @@ class NotificationService {
     }
   }
 
-  // ─── Permission request ───
+  // ─── Background / persistent notification ───
+
+  static Future<void> showBackgroundServiceNotification() async {
+    await _plugin.show(
+      AppConstants.notifBackgroundService,
+      'داليا نشطة في الخلفية',
+      'تنبيهات أوقات الصلاة مفعّلة',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _bgChannelId,
+          _bgChannelName,
+          importance: Importance.min,
+          priority: Priority.min,
+          ongoing: true,
+          autoCancel: false,
+          showWhen: false,
+          playSound: false,
+          enableVibration: false,
+          icon: '@mipmap/ic_launcher',
+        ),
+      ),
+    );
+  }
+
+  static Future<void> cancelBackgroundServiceNotification() async {
+    await _plugin.cancel(AppConstants.notifBackgroundService);
+  }
+
+  // ─── Custom sound: pick file + copy + get URI ───
+
+  /// يفتح منتقي الملفات، ينسخ الملف داخلياً، يُرجع content URI
+  static Future<String?> pickAndSaveCustomSound() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.audio,
+      allowMultiple: false,
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) return null;
+    final picked = result.files.first;
+
+    // Get bytes (works on both Android scoped storage and direct paths)
+    final bytes = picked.bytes;
+    if (bytes == null || bytes.isEmpty) return null;
+
+    // Save to internal files/sounds/ directory
+    final dir = await getApplicationDocumentsDirectory();
+    final soundsDir = Directory('${dir.path}/sounds');
+    if (!await soundsDir.exists()) await soundsDir.create(recursive: true);
+
+    final ext = picked.extension?.toLowerCase() ?? 'mp3';
+    final destFile = File('${soundsDir.path}/custom_sound.$ext');
+    await destFile.writeAsBytes(bytes, flush: true);
+
+    // Get FileProvider content URI via platform channel
+    final uri = await PlatformService.getFileProviderUri(destFile.path);
+    return uri;
+  }
+
+  // ─── Permission ───
 
   static Future<bool> requestPermission() async {
-    final android = _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
     return await android?.requestNotificationsPermission() ?? false;
   }
 
-  // ─── Battery optimization (UX: يسأل المستخدم مرة واحدة فقط) ───
-
   static Future<bool> checkExactAlarmPermission() async {
-    final android = _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
     return await android?.canScheduleExactNotifications() ?? false;
   }
 }

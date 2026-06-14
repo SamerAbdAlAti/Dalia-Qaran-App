@@ -451,6 +451,109 @@ class _PageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (pageData.hasLines) {
+      return _LineBasedContent(
+        pageData: pageData,
+        isDark: isDark,
+        textColor: textColor,
+      );
+    }
+    return _AyahBasedContent(
+      pageData: pageData,
+      state: state,
+      isDark: isDark,
+      textColor: textColor,
+    );
+  }
+}
+
+// ─── Line-based rendering (exact Mushaf layout when quran_lines.json exists) ───
+
+class _LineBasedContent extends StatelessWidget {
+  final MushafPageEntity pageData;
+  final bool isDark;
+  final Color textColor;
+
+  const _LineBasedContent({
+    required this.pageData,
+    required this.isDark,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = pageData.lines!;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+      child: LayoutBuilder(
+        builder: (ctx, constraints) {
+          final count = lines.length.clamp(1, 20);
+          final lineH = constraints.maxHeight / count;
+          final fontSize = (lineH * 0.50).clamp(14.0, 28.0);
+
+          return Column(
+            children: lines.map((line) {
+              final isSurahName = line.type == MushafLineType.surahName;
+              final isBasmala = line.type == MushafLineType.basmala;
+              final isSpecial = isSurahName || isBasmala;
+
+              Color lineColor = textColor;
+              FontWeight weight = FontWeight.w400;
+
+              if (isSurahName) {
+                lineColor = isDark ? AppColors.goldLight : AppColors.primaryDark;
+                weight = FontWeight.w700;
+              } else if (isBasmala) {
+                weight = FontWeight.w500;
+              }
+
+              return SizedBox(
+                height: lineH,
+                child: Center(
+                  child: Text(
+                    line.text,
+                    textAlign: line.isCentered || isSpecial
+                        ? TextAlign.center
+                        : TextAlign.justify,
+                    textDirection: TextDirection.rtl,
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                    style: TextStyle(
+                      fontFamily: 'ScheherazadeNew',
+                      fontSize: isSpecial ? fontSize * 0.95 : fontSize,
+                      color: lineColor,
+                      fontWeight: weight,
+                      height: 1.0,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─── Ayah-based rendering (fallback when only quran_pages.json is available) ───
+
+class _AyahBasedContent extends StatelessWidget {
+  final MushafPageEntity pageData;
+  final MushafReady state;
+  final bool isDark;
+  final Color textColor;
+
+  const _AyahBasedContent({
+    required this.pageData,
+    required this.state,
+    required this.isDark,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final surahIds = pageData.surahIds;
     final sections = <Widget>[];
 
@@ -466,7 +569,6 @@ class _PageContent extends StatelessWidget {
         }
       }
 
-      // Expanded so each text block fills its proportional share of the page
       sections.add(Expanded(
         flex: ayahs.length,
         child: _AyahsBlock(

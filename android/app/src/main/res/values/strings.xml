@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">داليا</string>
+    <string name="widget_prayer_times_desc">يعرض أوقات الصلاة والصلاة القادمة</string>
+    <string name="widget_ayah_desc">يعرض آية قرآنية يومية</string>
+    <string name="widget_qibla_desc">يعرض اتجاه القبلة</string>
+</resources>

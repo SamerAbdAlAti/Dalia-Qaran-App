@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_compass/flutter_compass.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/services/widget_service.dart';
 import '../../domain/entities/qibla_entity.dart';
 import '../../domain/usecases/qibla_usecases.dart';
 
@@ -80,6 +83,7 @@ class QiblaCubit extends Cubit<QiblaState> {
       (entity) {
         emit(QiblaLoaded(entity: entity));
         _subscribeCompass(entity);
+        _updateQiblaWidget(entity);
       },
     );
   }
@@ -95,6 +99,17 @@ class QiblaCubit extends Cubit<QiblaState> {
         ));
       }
     });
+  }
+
+  void _updateQiblaWidget(QiblaEntity entity) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final city = prefs.getString(AppConstants.keyCityName) ?? '';
+      await WidgetService.updateQiblaWidget(
+        qiblaAngle: entity.qiblaDirection,
+        cityName: city,
+      );
+    } catch (_) {}
   }
 
   @override

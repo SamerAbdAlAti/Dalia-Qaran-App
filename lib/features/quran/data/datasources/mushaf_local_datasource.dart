@@ -13,33 +13,103 @@ class MushafLocalDatasource {
   static const _keyReadPages = 'mushaf_read_pages';
   static const _keyTajweedMode = 'mushaf_tajweed_mode';
 
-  List<List<MushafAyahEntity>>? _pages;
+  List<List<MushafAyahEntity>>? _ayahPages;
+  List<List<MushafLine>?>? _linePages; // null per-page = no line data for that page
   List<MushafSurahInfo>? _surahInfos;
   Map<int, int>? _surahFirstPages;
 
   MushafLocalDatasource(this.prefs);
 
-  Future<void> loadData() async {
-    if (_pages != null) return;
+  // ─── Load (tries quran_lines.json first, falls back to quran_pages.json) ───
 
+  Future<void> loadData() async {
+    if (_ayahPages != null) return;
+
+    // Try the line-based format first
+    final loaded = await _tryLoadLines();
+    if (!loaded) await _loadPages();
+  }
+
+  /// Tries assets/quran/quran_lines.json — returns true if successful.
+  /// Format: { "surahs": [...], "pages": [{ "p":1, "j":1,
+  ///   "lines": [{"l":1,"t":"text","c":bool,"type":"normal|basmala|surah_name"},...],
+  ///   "ayahs": [{"s":1,"a":1,"t":"text","j":1,"h":1,"sa":false},...]
+  /// }]}
+  Future<bool> _tryLoadLines() async {
+    try {
+      final jsonStr =
+          await rootBundle.loadString('assets/quran/quran_lines.json');
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      _parseSurahs(data['surahs'] as List<dynamic>);
+
+      final rawPages = data['pages'] as List<dynamic>;
+      _ayahPages = [];
+      _linePages = [];
+      _surahFirstPages = {};
+
+      for (int i = 0; i < rawPages.length; i++) {
+        final pg = rawPages[i] as Map<String, dynamic>;
+
+        // Ayahs
+        final rawAyahs = (pg['ayahs'] as List<dynamic>?) ?? [];
+        final ayahs = rawAyahs.map((a) {
+          final m = a as Map<String, dynamic>;
+          return MushafAyahEntity(
+            surahId: _asInt(m['s']) ?? 1,
+            ayahNum: _asInt(m['a']) ?? 1,
+            text: _clean(m['t'] as String),
+            juz: _asInt(m['j']) ?? 1,
+            hizbQuarter: _asInt(m['h']) ?? 1,
+            isSajda: (m['sa'] as bool?) ?? false,
+          );
+        }).toList();
+        _ayahPages!.add(ayahs);
+
+        // Lines
+        final rawLines = pg['lines'] as List<dynamic>?;
+        if (rawLines != null && rawLines.isNotEmpty) {
+          _linePages!.add(rawLines
+              .map((l) => MushafLine.fromJson(l as Map<String, dynamic>))
+              .toList());
+        } else {
+          _linePages!.add(null);
+        }
+
+        // Surah first page index
+        for (final ayah in ayahs) {
+          if (ayah.ayahNum == 1 &&
+              !_surahFirstPages!.containsKey(ayah.surahId)) {
+            _surahFirstPages![ayah.surahId] = i + 1;
+          }
+        }
+      }
+      return true;
+    } catch (_) {
+      _ayahPages = null;
+      _linePages = null;
+      _surahInfos = null;
+      _surahFirstPages = null;
+      return false;
+    }
+  }
+
+  /// Loads the original assets/quran/quran_pages.json (ayah-only format).
+  Future<void> _loadPages() async {
     final jsonStr =
         await rootBundle.loadString('assets/quran/quran_pages.json');
     final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
-    final rawSurahs = data['surahs'] as List<dynamic>;
-    _surahInfos = List.generate(rawSurahs.length, (i) {
-      final s = rawSurahs[i] as Map<String, dynamic>;
-      return MushafSurahInfo(
-        id: i + 1,
-        arabicName: _clean(s['n'] as String),
-        type: (s['t'] as String).toLowerCase(),
-        verseCount: _asInt(s['v']) ?? 0,
-      );
-    });
+    _parseSurahs(data['surahs'] as List<dynamic>);
 
     final rawPages = data['pages'] as List<dynamic>;
-    _pages = rawPages.map((page) {
-      return (page as List<dynamic>).map((a) {
+    _ayahPages = [];
+    _linePages = List<List<MushafLine>?>.filled(rawPages.length, null);
+    _surahFirstPages = {};
+
+    for (int i = 0; i < rawPages.length; i++) {
+      final page = rawPages[i] as List<dynamic>;
+      final ayahs = page.map((a) {
         final m = a as Map<String, dynamic>;
         return MushafAyahEntity(
           surahId: _asInt(m['s']) ?? 1,
@@ -50,11 +120,9 @@ class MushafLocalDatasource {
           isSajda: (m['sa'] as bool?) ?? false,
         );
       }).toList();
-    }).toList();
+      _ayahPages!.add(ayahs);
 
-    _surahFirstPages = {};
-    for (int i = 0; i < _pages!.length; i++) {
-      for (final ayah in _pages![i]) {
+      for (final ayah in ayahs) {
         if (ayah.ayahNum == 1 &&
             !_surahFirstPages!.containsKey(ayah.surahId)) {
           _surahFirstPages![ayah.surahId] = i + 1;
@@ -63,14 +131,28 @@ class MushafLocalDatasource {
     }
   }
 
+  void _parseSurahs(List<dynamic> rawSurahs) {
+    _surahInfos = List.generate(rawSurahs.length, (i) {
+      final s = rawSurahs[i] as Map<String, dynamic>;
+      return MushafSurahInfo(
+        id: i + 1,
+        arabicName: _clean(s['n'] as String),
+        type: (s['t'] as String).toLowerCase(),
+        verseCount: _asInt(s['v']) ?? 0,
+      );
+    });
+  }
+
   // ─── Pages ───
 
   MushafPageEntity getPage(int pageNumber) {
-    final ayahs = _pages![pageNumber - 1];
+    final ayahs = _ayahPages![pageNumber - 1];
+    final lines = _linePages?[pageNumber - 1];
     return MushafPageEntity(
       pageNumber: pageNumber,
       juzNumber: ayahs.isEmpty ? 1 : ayahs.first.juz,
       ayahs: ayahs,
+      lines: lines,
     );
   }
 
@@ -81,13 +163,14 @@ class MushafLocalDatasource {
   // ─── Last Read Page ───
 
   int getLastReadPage() => prefs.getInt(_keyLastReadPage) ?? 1;
-  String getLastReadSurahName() => prefs.getString(_keyLastReadSurahName) ?? '';
+  String getLastReadSurahName() =>
+      prefs.getString(_keyLastReadSurahName) ?? '';
   int getLastReadJuz() => prefs.getInt(_keyLastReadJuz) ?? 1;
 
   Future<void> saveLastReadPage(int page) async {
     await prefs.setInt(_keyLastReadPage, page);
-    if (_pages != null && page >= 1 && page <= _pages!.length) {
-      final ayahs = _pages![page - 1];
+    if (_ayahPages != null && page >= 1 && page <= _ayahPages!.length) {
+      final ayahs = _ayahPages![page - 1];
       if (ayahs.isNotEmpty && _surahInfos != null) {
         final info = _surahInfos![ayahs.first.surahId - 1];
         await prefs.setString(_keyLastReadSurahName, info.arabicName);
@@ -114,8 +197,7 @@ class MushafLocalDatasource {
   }
 
   Future<void> saveBookmarks(List<MushafBookmark> bookmarks) {
-    final encoded =
-        jsonEncode(bookmarks.map((b) => b.toJson()).toList());
+    final encoded = jsonEncode(bookmarks.map((b) => b.toJson()).toList());
     return prefs.setString(_keyBookmarks, encoded);
   }
 

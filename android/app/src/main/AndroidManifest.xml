@@ -69,6 +69,54 @@
                 android:name="androidx.work.WorkManagerInitializer"
                 android:value="androidx.startup"/>
         </provider>
+        <!-- FileProvider — لمشاركة ملفات الصوت المخصصة مع نظام الإشعارات -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="app.daliya.quran.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths"/>
+        </provider>
+
+        <!-- App Widgets -->
+        <receiver
+            android:name=".PrayerTimesWidget"
+            android:exported="true"
+            android:label="@string/widget_prayer_times_desc">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_prayer_times_info"/>
+        </receiver>
+
+        <receiver
+            android:name=".AyahWidget"
+            android:exported="true"
+            android:label="@string/widget_ayah_desc">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_ayah_info"/>
+        </receiver>
+
+        <receiver
+            android:name=".QiblaWidget"
+            android:exported="true"
+            android:label="@string/widget_qibla_desc">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_qibla_info"/>
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
