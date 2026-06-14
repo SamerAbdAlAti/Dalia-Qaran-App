@@ -1,0 +1,108 @@
+name: qaran_app
+description: "داليا للقرآن الكريم و إتجاه القبلة و مواقيت الصلاة"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_bloc: ^9.1.0
+  equatable: ^2.0.7
+
+  # Database
+  objectbox: ^4.0.3
+  objectbox_flutter_libs: ^4.0.3
+
+  # Dependency Injection
+  get_it: ^8.0.3
+
+  # Functional Error Handling
+  dartz: ^0.10.1
+
+  # Local Storage
+  shared_preferences: ^2.3.4
+
+  # Prayer Times Calculation (pure Dart — no native code)
+  adhan: ^2.0.0
+
+  # Location
+  geolocator: ^13.0.4
+
+  # Compass Sensor (for Qibla direction)
+  flutter_compass: ^0.8.1
+
+  # Local Notifications (prayer time alerts)
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.9.4
+
+  # Arabic Fonts — Scheherazade New for Quran text
+  google_fonts: ^6.2.1
+
+  # Date & Internationalization
+  intl: ^0.20.1
+  flutter_screenutil: ^5.9.3
+
+  # Splash screen (runtime — needed for FlutterNativeSplash.remove())
+  flutter_native_splash: ^2.4.8
+  workmanager: ^0.9.0+3
+  audioplayers: ^6.7.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  objectbox_generator: ^4.0.3
+  flutter_launcher_icons: ^0.14.4
+
+flutter_native_splash:
+  color: "#1A3A18"
+  image: design/icon_1024.png
+  color_dark: "#0D2210"
+  image_dark: design/icon_1024.png
+  android_12:
+    color: "#1A3A18"
+    image: design/icon_1024.png
+    color_dark: "#0D2210"
+    image_dark: design/icon_1024.png
+  fullscreen: true
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "design/icon_1024.png"
+  adaptive_icon_background: "#1A3A18"
+  adaptive_icon_foreground: "design/icon_1024.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/quran/
+    - assets/sounds/
+    - assets/fonts/
+
+  fonts:
+    - family: Cairo
+      fonts:
+        - asset: assets/fonts/Cairo-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Cairo-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Cairo-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Cairo-Bold.ttf
+          weight: 700
+    - family: ScheherazadeNew
+      fonts:
+        - asset: assets/fonts/ScheherazadeNew-Regular.ttf
+          weight: 400

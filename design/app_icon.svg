@@ -1,0 +1,282 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+
+    <!-- Background gradient -->
+    <radialGradient id="bgGrad" cx="40%" cy="35%" r="70%">
+      <stop offset="0%"   stop-color="#2D6B26"/>
+      <stop offset="60%"  stop-color="#1C4A18"/>
+      <stop offset="100%" stop-color="#0D2210"/>
+    </radialGradient>
+
+    <!-- Gold gradient for elements -->
+    <linearGradient id="goldV" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#F0D080"/>
+      <stop offset="40%"  stop-color="#D4A847"/>
+      <stop offset="100%" stop-color="#A07820"/>
+    </linearGradient>
+
+    <linearGradient id="goldH" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#E8C860"/>
+      <stop offset="50%"  stop-color="#D4A847"/>
+      <stop offset="100%" stop-color="#B88C30"/>
+    </linearGradient>
+
+    <!-- Page gradient — warm white -->
+    <linearGradient id="pageL" x1="100%" y1="0%" x2="0%" y2="0%">
+      <stop offset="0%"   stop-color="#FFFDF5"/>
+      <stop offset="100%" stop-color="#F0E8D0"/>
+    </linearGradient>
+    <linearGradient id="pageR" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#FFFDF5"/>
+      <stop offset="100%" stop-color="#F0E8D0"/>
+    </linearGradient>
+
+    <!-- Spine glow -->
+    <linearGradient id="spineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#F5DC78"/>
+      <stop offset="50%"  stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#D4A847"/>
+    </linearGradient>
+
+    <!-- Outer glow filter -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+
+    <!-- Soft shadow -->
+    <filter id="shadow" x="-10%" y="-5%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="20" flood-color="#00000066"/>
+    </filter>
+
+    <!-- Inner glow on book -->
+    <filter id="bookGlow" x="-5%" y="-5%" width="110%" height="115%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+
+    <!-- Clip for rounded icon shape -->
+    <clipPath id="iconShape">
+      <rect width="1024" height="1024" rx="230" ry="230"/>
+    </clipPath>
+
+  </defs>
+
+  <!-- ═══ LAYER 1: Background ═══ -->
+  <g clip-path="url(#iconShape)">
+    <rect width="1024" height="1024" fill="url(#bgGrad)"/>
+
+    <!-- ── Subtle radial shimmer ── -->
+    <circle cx="512" cy="512" r="600" fill="none" stroke="#ffffff06" stroke-width="180"/>
+    <circle cx="512" cy="512" r="420" fill="none" stroke="#ffffff05" stroke-width="120"/>
+    <circle cx="512" cy="512" r="260" fill="none" stroke="#ffffff04" stroke-width="80"/>
+
+    <!-- ── Background 8-pointed star (very subtle) ── -->
+    <g opacity="0.06" transform="translate(512,512)">
+      <polygon points="0,-340 40,-40 340,0 40,40 0,340 -40,40 -340,0 -40,-40" fill="#D4A847"/>
+      <polygon points="0,-340 40,-40 340,0 40,40 0,340 -40,40 -340,0 -40,-40" fill="#D4A847" transform="rotate(22.5)"/>
+    </g>
+
+    <!-- ── Corner Islamic geometric ornaments ── -->
+    <!-- Top-left -->
+    <g opacity="0.12" transform="translate(100,100)">
+      <circle cx="0" cy="0" r="60" fill="none" stroke="#D4A847" stroke-width="2"/>
+      <circle cx="0" cy="0" r="40" fill="none" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="-60" y1="0" x2="60" y2="0" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="0" y1="-60" x2="0" y2="60" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="-42" y1="-42" x2="42" y2="42" stroke="#D4A847" stroke-width="1"/>
+      <line x1="42" y1="-42" x2="-42" y2="42" stroke="#D4A847" stroke-width="1"/>
+    </g>
+    <!-- Top-right -->
+    <g opacity="0.12" transform="translate(924,100)">
+      <circle cx="0" cy="0" r="60" fill="none" stroke="#D4A847" stroke-width="2"/>
+      <circle cx="0" cy="0" r="40" fill="none" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="-60" y1="0" x2="60" y2="0" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="0" y1="-60" x2="0" y2="60" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="-42" y1="-42" x2="42" y2="42" stroke="#D4A847" stroke-width="1"/>
+      <line x1="42" y1="-42" x2="-42" y2="42" stroke="#D4A847" stroke-width="1"/>
+    </g>
+    <!-- Bottom-left -->
+    <g opacity="0.12" transform="translate(100,924)">
+      <circle cx="0" cy="0" r="60" fill="none" stroke="#D4A847" stroke-width="2"/>
+      <circle cx="0" cy="0" r="40" fill="none" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="-60" y1="0" x2="60" y2="0" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="0" y1="-60" x2="0" y2="60" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="-42" y1="-42" x2="42" y2="42" stroke="#D4A847" stroke-width="1"/>
+      <line x1="42" y1="-42" x2="-42" y2="42" stroke="#D4A847" stroke-width="1"/>
+    </g>
+    <!-- Bottom-right -->
+    <g opacity="0.12" transform="translate(924,924)">
+      <circle cx="0" cy="0" r="60" fill="none" stroke="#D4A847" stroke-width="2"/>
+      <circle cx="0" cy="0" r="40" fill="none" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="-60" y1="0" x2="60" y2="0" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="0" y1="-60" x2="0" y2="60" stroke="#D4A847" stroke-width="1.5"/>
+      <line x1="-42" y1="-42" x2="42" y2="42" stroke="#D4A847" stroke-width="1"/>
+      <line x1="42" y1="-42" x2="-42" y2="42" stroke="#D4A847" stroke-width="1"/>
+    </g>
+
+    <!-- ═══ LAYER 2: Gold frame border ═══ -->
+    <rect x="38" y="38" width="948" height="948" rx="200" ry="200"
+          fill="none" stroke="url(#goldH)" stroke-width="5" opacity="0.55"/>
+    <rect x="52" y="52" width="920" height="920" rx="188" ry="188"
+          fill="none" stroke="url(#goldH)" stroke-width="2" opacity="0.25"/>
+
+    <!-- ═══ LAYER 3: Open Quran Book ═══ -->
+    <g filter="url(#shadow)" transform="translate(512, 490)">
+
+      <!-- Book base shadow blob -->
+      <ellipse cx="0" cy="230" rx="310" ry="30" fill="#00000055"/>
+
+      <!-- ── LEFT PAGE ── -->
+      <!-- Page curl/3D effect — left edge darker -->
+      <path d="M-300,-200 Q-310,-180 -310,180 Q-260,200 -20,210 L-20,-210 Q-260,-200 -300,-200 Z"
+            fill="#E8DEC0"/>
+      <!-- Main page surface -->
+      <path d="M-20,-210 Q-260,-200 -300,-200 Q-310,-180 -310,180 Q-260,200 -20,210 Z"
+            fill="url(#pageL)"/>
+
+      <!-- Left page text lines (Arabic ayat simulation) -->
+      <g opacity="0.35" fill="#2D5A27">
+        <!-- Bismillah ornamental line at top -->
+        <rect x="-280" y="-165" width="230" height="10" rx="5"/>
+        <!-- Text lines -->
+        <rect x="-280" y="-130" width="210" height="7" rx="3.5"/>
+        <rect x="-280" y="-108" width="200" height="7" rx="3.5"/>
+        <rect x="-280" y="-86"  width="220" height="7" rx="3.5"/>
+        <rect x="-280" y="-64"  width="195" height="7" rx="3.5"/>
+        <rect x="-280" y="-42"  width="215" height="7" rx="3.5"/>
+        <rect x="-280" y="-20"  width="205" height="7" rx="3.5"/>
+        <rect x="-280" y="2"    width="218" height="7" rx="3.5"/>
+        <rect x="-280" y="24"   width="200" height="7" rx="3.5"/>
+        <rect x="-280" y="46"   width="212" height="7" rx="3.5"/>
+        <rect x="-280" y="68"   width="195" height="7" rx="3.5"/>
+        <rect x="-280" y="90"   width="220" height="7" rx="3.5"/>
+        <rect x="-280" y="112"  width="205" height="7" rx="3.5"/>
+        <rect x="-280" y="134"  width="210" height="7" rx="3.5"/>
+        <!-- Page number -->
+        <rect x="-120" y="165" width="50" height="7" rx="3.5"/>
+      </g>
+
+      <!-- ── RIGHT PAGE ── -->
+      <path d="M300,-200 Q310,-180 310,180 Q260,200 20,210 L20,-210 Q260,-200 300,-200 Z"
+            fill="#E8DEC0"/>
+      <path d="M20,-210 Q260,-200 300,-200 Q310,-180 310,180 Q260,200 20,210 Z"
+            fill="url(#pageR)"/>
+
+      <!-- Right page text lines -->
+      <g opacity="0.35" fill="#2D5A27">
+        <rect x="50" y="-165" width="230" height="10" rx="5"/>
+        <rect x="50" y="-130" width="215" height="7" rx="3.5"/>
+        <rect x="50" y="-108" width="200" height="7" rx="3.5"/>
+        <rect x="50" y="-86"  width="225" height="7" rx="3.5"/>
+        <rect x="50" y="-64"  width="195" height="7" rx="3.5"/>
+        <rect x="50" y="-42"  width="210" height="7" rx="3.5"/>
+
+        <!-- ── Compass rose embedded in right page ── -->
+        <!-- Circle frame -->
+        <circle cx="160" cy="50" r="72" fill="none" stroke="#2D5A27" stroke-width="2.5" opacity="0.6"/>
+        <circle cx="160" cy="50" r="60" fill="none" stroke="#2D5A27" stroke-width="1" opacity="0.4"/>
+        <!-- N/S/E/W tick marks -->
+        <line x1="160" y1="-22" x2="160" y2="-10" stroke="#2D5A27" stroke-width="3" opacity="0.7"/>
+        <line x1="160" y1="110" x2="160" y2="122" stroke="#2D5A27" stroke-width="3" opacity="0.7"/>
+        <line x1="88"  y1="50"  x2="100" y2="50"  stroke="#2D5A27" stroke-width="3" opacity="0.7"/>
+        <line x1="220" y1="50"  x2="232" y2="50"  stroke="#2D5A27" stroke-width="3" opacity="0.7"/>
+        <!-- Needle pointing to Qibla (SE ~135°) -->
+        <polygon points="160,-15 164,52 160,48 156,52" fill="#C0392B" opacity="0.8"/>
+        <polygon points="160,115 164,48 160,52 156,48" fill="#888" opacity="0.5"/>
+        <!-- Center dot -->
+        <circle cx="160" cy="50" r="6" fill="#2D5A27" opacity="0.9"/>
+        <circle cx="160" cy="50" r="3" fill="white" opacity="0.9"/>
+      </g>
+
+      <!-- More text lines below compass -->
+      <g opacity="0.35" fill="#2D5A27">
+        <rect x="50" y="112"  width="80"  height="7" rx="3.5"/>
+        <rect x="50" y="134"  width="220" height="7" rx="3.5"/>
+        <rect x="90" y="165"  width="50"  height="7" rx="3.5"/>
+      </g>
+
+      <!-- ── SPINE (center) ── -->
+      <rect x="-22" y="-215" width="44" height="430" rx="4"
+            fill="url(#spineGrad)"/>
+      <!-- Spine detail lines -->
+      <rect x="-20" y="-215" width="2" height="430" fill="#ffffff40"/>
+      <rect x="18"  y="-215" width="2" height="430" fill="#00000020"/>
+
+      <!-- ── Book cover edges / binding ── -->
+      <!-- Left cover edge -->
+      <path d="M-310,-200 Q-320,-190 -320,180 L-310,180 Q-310,-180 -310,-200 Z"
+            fill="url(#goldV)" opacity="0.7"/>
+      <!-- Right cover edge -->
+      <path d="M310,-200 Q320,-190 320,180 L310,180 Q310,-180 310,-200 Z"
+            fill="url(#goldV)" opacity="0.7"/>
+      <!-- Bottom cover edge -->
+      <path d="M-310,180 Q-260,218 0,220 Q260,218 310,180 L310,195 Q260,234 0,236 Q-260,234 -310,195 Z"
+            fill="url(#goldH)" opacity="0.65"/>
+
+      <!-- ── Gold ornamental frames on pages ── -->
+      <!-- Left page frame -->
+      <rect x="-295" y="-205" width="273" height="408" rx="6"
+            fill="none" stroke="url(#goldH)" stroke-width="3" opacity="0.5"/>
+      <rect x="-286" y="-196" width="255" height="390" rx="4"
+            fill="none" stroke="#D4A847" stroke-width="1.5" opacity="0.3"/>
+      <!-- Right page frame -->
+      <rect x="22"   y="-205" width="273" height="408" rx="6"
+            fill="none" stroke="url(#goldH)" stroke-width="3" opacity="0.5"/>
+      <rect x="31"   y="-196" width="255" height="390" rx="4"
+            fill="none" stroke="#D4A847" stroke-width="1.5" opacity="0.3"/>
+
+      <!-- ── Page corner ornaments ── -->
+      <g fill="url(#goldV)" opacity="0.6">
+        <!-- Left page corners -->
+        <polygon points="-295,-205 -265,-205 -295,-175"/>
+        <polygon points="-295,203  -265,203  -295,173"/>
+        <polygon points="-22,-205  -52,-205  -22,-175"/>
+        <polygon points="-22,203   -52,203   -22,173"/>
+        <!-- Right page corners -->
+        <polygon points="22,-205  52,-205  22,-175"/>
+        <polygon points="22,203   52,203   22,173"/>
+        <polygon points="295,-205 265,-205 295,-175"/>
+        <polygon points="295,203  265,203  295,173"/>
+      </g>
+
+    </g>
+
+    <!-- ═══ LAYER 4: App name "داليا" ═══ -->
+    <!-- Glow behind text -->
+    <ellipse cx="512" cy="840" rx="220" ry="35" fill="#D4A847" opacity="0.18" filter="url(#glow)"/>
+    <!-- Text -->
+    <text x="512" y="870"
+          text-anchor="middle"
+          font-family="'Arial', 'Segoe UI', sans-serif"
+          font-size="88"
+          font-weight="bold"
+          letter-spacing="6"
+          fill="url(#goldV)"
+          opacity="0.95">داليا</text>
+    <!-- Subtitle dots -->
+    <circle cx="380" cy="900" r="4" fill="#D4A847" opacity="0.5"/>
+    <circle cx="512" cy="900" r="4" fill="#D4A847" opacity="0.5"/>
+    <circle cx="644" cy="900" r="4" fill="#D4A847" opacity="0.5"/>
+
+    <!-- ═══ LAYER 5: Crescent + Star (top right accent) ═══ -->
+    <g transform="translate(830, 180)" opacity="0.75">
+      <!-- Crescent -->
+      <circle cx="0" cy="0" r="52" fill="none" stroke="url(#goldV)" stroke-width="3"/>
+      <circle cx="20" cy="-14" r="44" fill="#1A3A18"/>
+      <!-- Star -->
+      <polygon points="68,0 72,10 83,10 74,17 77,28 68,21 59,28 62,17 53,10 64,10"
+               fill="url(#goldV)" opacity="0.9"/>
+    </g>
+
+    <!-- ═══ Subtle top light reflection ═══ -->
+    <ellipse cx="400" cy="150" rx="280" ry="60"
+             fill="white" opacity="0.04"/>
+
+  </g>
+
+  <!-- Rounded border overlay (polishes the edges) -->
+  <rect width="1024" height="1024" rx="230" ry="230"
+        fill="none" stroke="#ffffff12" stroke-width="6"/>
+
+</svg>

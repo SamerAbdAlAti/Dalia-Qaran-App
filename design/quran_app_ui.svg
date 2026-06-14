@@ -1,0 +1,617 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2230" height="964" viewBox="0 0 2230 964" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="2" stdDeviation="6" flood-color="#00000018"/>
+    </filter>
+    <filter id="shadow-strong" x="-5%" y="-5%" width="110%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="12" flood-color="#00000022"/>
+    </filter>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2D5A27"/>
+      <stop offset="100%" style="stop-color:#1A3A18"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4A847"/>
+      <stop offset="100%" style="stop-color:#B8891E"/>
+    </linearGradient>
+    <linearGradient id="prayerCard" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2D5A27"/>
+      <stop offset="100%" style="stop-color:#3D7A35"/>
+    </linearGradient>
+    <linearGradient id="qiblaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1A3A18"/>
+      <stop offset="100%" style="stop-color:#2D5A27"/>
+    </linearGradient>
+    <clipPath id="screen1"><rect x="40" y="40" width="390" height="844" rx="40"/></clipPath>
+    <clipPath id="screen2"><rect x="470" y="40" width="390" height="844" rx="40"/></clipPath>
+    <clipPath id="screen3"><rect x="900" y="40" width="390" height="844" rx="40"/></clipPath>
+    <clipPath id="screen4"><rect x="1330" y="40" width="390" height="844" rx="40"/></clipPath>
+    <clipPath id="screen5"><rect x="1760" y="40" width="390" height="844" rx="40"/></clipPath>
+  </defs>
+
+  <!-- Page Background -->
+  <rect width="2230" height="964" fill="#E8E3DC"/>
+
+  <!-- Labels -->
+  <text x="235" y="26" text-anchor="middle" fill="#666" font-size="13" font-weight="600">الرئيسية</text>
+  <text x="665" y="26" text-anchor="middle" fill="#666" font-size="13" font-weight="600">قائمة السور</text>
+  <text x="1095" y="26" text-anchor="middle" fill="#666" font-size="13" font-weight="600">شاشة القراءة</text>
+  <text x="1525" y="26" text-anchor="middle" fill="#666" font-size="13" font-weight="600">أوقات الصلاة</text>
+  <text x="1955" y="26" text-anchor="middle" fill="#666" font-size="13" font-weight="600">اتجاه القبلة</text>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--                    SCREEN 1 — HOME                            -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <rect x="40" y="40" width="390" height="844" rx="40" fill="#F7F4EF" filter="url(#shadow-strong)"/>
+  <g clip-path="url(#screen1)">
+
+    <!-- Header BG -->
+    <rect x="40" y="40" width="390" height="260" fill="url(#greenGrad)"/>
+
+    <!-- Decorative circles -->
+    <circle cx="380" cy="80" r="90" fill="#ffffff08"/>
+    <circle cx="60" cy="260" r="70" fill="#ffffff06"/>
+
+    <!-- Status bar -->
+    <text x="420" y="68" text-anchor="end" fill="#ffffffaa" font-size="12">9:41</text>
+    <rect x="330" y="59" width="40" height="8" rx="4" fill="#ffffff55"/>
+    <rect x="376" y="57" width="14" height="10" rx="2" fill="#ffffff88"/>
+
+    <!-- Greeting -->
+    <text x="235" y="115" text-anchor="middle" fill="#ffffff99" font-size="13">الأربعاء، ١٤ ذو الحجة ١٤٤٦</text>
+    <text x="235" y="148" text-anchor="middle" fill="#FFFFFF" font-size="22" font-weight="700">السلام عليكم</text>
+
+    <!-- Next Prayer Card -->
+    <rect x="64" y="168" width="342" height="108" rx="20" fill="#ffffff18"/>
+    <text x="390" y="198" text-anchor="end" fill="#ffffff99" font-size="12">الصلاة القادمة</text>
+    <text x="390" y="226" text-anchor="end" fill="#FFFFFF" font-size="26" font-weight="700">العصر</text>
+    <text x="70" y="226" text-anchor="start" fill="#D4A847" font-size="30" font-weight="800">٠٤:٢٣</text>
+    <!-- Progress bar -->
+    <rect x="70" y="248" width="310" height="4" rx="2" fill="#ffffff22"/>
+    <rect x="70" y="248" width="190" height="4" rx="2" fill="#D4A847"/>
+    <text x="390" y="263" text-anchor="end" fill="#ffffff77" font-size="11">بعد ١ س و ٤٧ د</text>
+
+    <!-- White body -->
+    <rect x="40" y="282" width="390" height="602" fill="#F7F4EF"/>
+
+    <!-- Quick Access Title -->
+    <text x="390" y="320" text-anchor="end" fill="#1A3A18" font-size="15" font-weight="700">وصول سريع</text>
+
+    <!-- Quick Cards Row -->
+    <!-- Card: Quran -->
+    <rect x="64" y="332" width="100" height="100" rx="18" fill="#FFFFFF" filter="url(#shadow)"/>
+    <rect x="89" y="352" width="50" height="50" rx="12" fill="#E8F5E4"/>
+    <!-- Book icon -->
+    <rect x="97" y="358" width="34" height="28" rx="4" fill="#2D5A27"/>
+    <line x1="114" y1="358" x2="114" y2="386" stroke="#ffffff55" stroke-width="1.5"/>
+    <rect x="99" y="393" width="28" height="3" rx="1.5" fill="#2D5A2740"/>
+    <text x="114" y="422" text-anchor="middle" fill="#1A3A18" font-size="12" font-weight="600">القرآن</text>
+
+    <!-- Card: Prayer Times -->
+    <rect x="175" y="332" width="100" height="100" rx="18" fill="#FFFFFF" filter="url(#shadow)"/>
+    <rect x="200" y="352" width="50" height="50" rx="12" fill="#FFF8E7"/>
+    <!-- Clock icon -->
+    <circle cx="225" cy="377" r="16" fill="none" stroke="#D4A847" stroke-width="2.5"/>
+    <line x1="225" y1="370" x2="225" y2="377" stroke="#D4A847" stroke-width="2" stroke-linecap="round"/>
+    <line x1="225" y1="377" x2="231" y2="377" stroke="#D4A847" stroke-width="2" stroke-linecap="round"/>
+    <text x="225" y="422" text-anchor="middle" fill="#1A3A18" font-size="12" font-weight="600">الصلاة</text>
+
+    <!-- Card: Qibla -->
+    <rect x="286" y="332" width="100" height="100" rx="18" fill="#FFFFFF" filter="url(#shadow)"/>
+    <rect x="311" y="352" width="50" height="50" rx="12" fill="#E8F0FF"/>
+    <!-- Compass icon -->
+    <circle cx="336" cy="377" r="16" fill="none" stroke="#4A7FC1" stroke-width="2"/>
+    <polygon points="336,364 340,378 336,376 332,378" fill="#E53935"/>
+    <polygon points="336,390 340,376 336,378 332,376" fill="#BDBDBD"/>
+    <text x="336" y="422" text-anchor="middle" fill="#1A3A18" font-size="12" font-weight="600">القبلة</text>
+
+    <!-- Daily Ayah Section -->
+    <rect x="64" y="450" width="342" height="120" rx="18" fill="#FFFFFF" filter="url(#shadow)"/>
+    <text x="390" y="478" text-anchor="end" fill="#888" font-size="12">آية اليوم</text>
+    <text x="390" y="505" text-anchor="end" fill="#1A3A18" font-size="16" font-weight="600">﴿ وَنُنَزِّلُ مِنَ الْقُرْآنِ مَا هُوَ شِفَاءٌ ﴾</text>
+    <text x="390" y="527" text-anchor="end" fill="#888" font-size="12">وَرَحْمَةٌ لِّلْمُؤْمِنِينَ</text>
+    <text x="70" y="557" fill="#2D5A27" font-size="11">سورة الإسراء — ٨٢</text>
+
+    <!-- Prayer Times Preview -->
+    <rect x="64" y="586" width="342" height="110" rx="18" fill="#FFFFFF" filter="url(#shadow)"/>
+    <text x="390" y="614" text-anchor="end" fill="#888" font-size="12">أوقات الصلاة اليوم</text>
+    <!-- Prayer rows -->
+    <text x="390" y="640" text-anchor="end" fill="#333" font-size="13">الفجر</text>
+    <text x="70" y="640" fill="#888" font-size="13">٠٤:٣٢</text>
+    <text x="270" y="640" text-anchor="end" fill="#333" font-size="13">الظهر</text>
+    <text x="230" y="640" fill="#888" font-size="13">١٢:١٥</text>
+    <line x1="70" y1="650" x2="390" y2="650" stroke="#F0EDE8" stroke-width="1"/>
+    <text x="390" y="670" text-anchor="end" fill="#2D5A27" font-size="13" font-weight="600">العصر</text>
+    <text x="70" y="670" fill="#D4A847" font-size="13" font-weight="600">٠٤:٢٣</text>
+    <text x="270" y="670" text-anchor="end" fill="#333" font-size="13">المغرب</text>
+    <text x="230" y="670" fill="#888" font-size="13">٠٧:٠٨</text>
+    <line x1="70" y1="680" x2="390" y2="680" stroke="#F0EDE8" stroke-width="1"/>
+    <text x="390" y="700" text-anchor="end" fill="#333" font-size="13">العشاء</text>
+    <text x="70" y="700" fill="#888" font-size="13">٠٨:٣٩</text>
+
+    <!-- Bottom Nav -->
+    <rect x="40" y="798" width="390" height="86" fill="#FFFFFF"/>
+    <line x1="40" y1="798" x2="430" y2="798" stroke="#F0EDE8" stroke-width="1"/>
+    <!-- Nav Items -->
+    <!-- Home (active) -->
+    <rect x="64" y="814" width="58" height="44" rx="12" fill="#E8F5E4"/>
+    <rect x="84" y="824" width="18" height="14" rx="3" fill="#2D5A27"/>
+    <polygon points="93,818 76,828 110,828" fill="#2D5A27"/>
+    <text x="93" y="867" text-anchor="middle" fill="#2D5A27" font-size="10" font-weight="600">الرئيسية</text>
+    <!-- Quran -->
+    <rect x="146" y="820" width="16" height="20" rx="2" fill="#BDBDBD"/>
+    <line x1="154" y1="820" x2="154" y2="840" stroke="#fff" stroke-width="1"/>
+    <text x="154" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">القرآن</text>
+    <!-- Prayer -->
+    <circle cx="215" cy="832" r="9" fill="none" stroke="#BDBDBD" stroke-width="2"/>
+    <line x1="215" y1="826" x2="215" y2="832" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="215" y1="832" x2="219" y2="832" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="215" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">الصلاة</text>
+    <!-- Qibla -->
+    <circle cx="276" cy="832" r="9" fill="none" stroke="#BDBDBD" stroke-width="1.5"/>
+    <polygon points="276,822 278,832 276,830 274,832" fill="#BDBDBD"/>
+    <text x="276" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">القبلة</text>
+    <!-- Settings -->
+    <circle cx="337" cy="832" r="9" fill="none" stroke="#BDBDBD" stroke-width="2"/>
+    <circle cx="337" cy="832" r="4" fill="#BDBDBD"/>
+    <text x="337" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">الإعدادات</text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--                  SCREEN 2 — SURAH LIST                        -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <rect x="470" y="40" width="390" height="844" rx="40" fill="#F7F4EF" filter="url(#shadow-strong)"/>
+  <g clip-path="url(#screen2)">
+
+    <rect x="470" y="40" width="390" height="130" fill="url(#greenGrad)"/>
+    <circle cx="800" cy="80" r="80" fill="#ffffff08"/>
+
+    <!-- Status -->
+    <text x="850" y="68" text-anchor="end" fill="#ffffffaa" font-size="12">9:41</text>
+
+    <!-- Header -->
+    <text x="855" y="105" text-anchor="end" fill="#FFFFFF" font-size="20" font-weight="700">القرآن الكريم</text>
+    <text x="855" y="128" text-anchor="end" fill="#ffffff99" font-size="13">١١٤ سورة · ٦٢٣٦ آية</text>
+
+    <!-- Search Bar -->
+    <rect x="494" y="152" width="342" height="44" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <text x="820" y="178" text-anchor="end" fill="#BDBDBD" font-size="14">ابحث عن سورة...</text>
+    <circle cx="508" cy="174" r="8" fill="none" stroke="#BDBDBD" stroke-width="2"/>
+    <line x1="514" y1="180" x2="518" y2="184" stroke="#BDBDBD" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- Tabs -->
+    <rect x="494" y="208" width="342" height="36" rx="10" fill="#E8E3DC"/>
+    <rect x="496" y="210" width="168" height="32" rx="8" fill="#2D5A27"/>
+    <text x="580" y="230" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="600">ترتيب المصحف</text>
+    <text x="748" y="230" text-anchor="middle" fill="#888" font-size="13">ترتيب النزول</text>
+
+    <!-- Surah Items -->
+    <!-- Item template repeated -->
+    <!-- Surah 1 -->
+    <rect x="494" y="256" width="342" height="68" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <circle cx="530" cy="290" r="18" fill="url(#greenGrad)"/>
+    <text x="530" y="295" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="700">١</text>
+    <text x="826" y="282" text-anchor="end" fill="#1A3A18" font-size="16" font-weight="700">الفاتحة</text>
+    <text x="826" y="302" text-anchor="end" fill="#888" font-size="12">مكية · ٧ آيات</text>
+    <rect x="494" y="310" width="342" height="1" fill="#F0EDE8"/>
+    <text x="500" y="314" fill="#2D5A27" font-size="10">Al-Fatihah</text>
+
+    <!-- Surah 2 -->
+    <rect x="494" y="334" width="342" height="68" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <circle cx="530" cy="368" r="18" fill="#F7F4EF"/>
+    <text x="530" y="373" text-anchor="middle" fill="#2D5A27" font-size="12" font-weight="700">٢</text>
+    <text x="826" y="360" text-anchor="end" fill="#1A3A18" font-size="16" font-weight="700">البقرة</text>
+    <text x="826" y="380" text-anchor="end" fill="#888" font-size="12">مدنية · ٢٨٦ آية</text>
+    <text x="500" y="392" fill="#888" font-size="10">Al-Baqarah</text>
+
+    <!-- Surah 3 -->
+    <rect x="494" y="412" width="342" height="68" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <circle cx="530" cy="446" r="18" fill="#F7F4EF"/>
+    <text x="530" y="451" text-anchor="middle" fill="#2D5A27" font-size="12" font-weight="700">٣</text>
+    <text x="826" y="438" text-anchor="end" fill="#1A3A18" font-size="16" font-weight="700">آل عمران</text>
+    <text x="826" y="458" text-anchor="end" fill="#888" font-size="12">مدنية · ٢٠٠ آية</text>
+    <text x="500" y="470" fill="#888" font-size="10">Aal-E-Imran</text>
+
+    <!-- Surah 4 -->
+    <rect x="494" y="490" width="342" height="68" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <circle cx="530" cy="524" r="18" fill="#F7F4EF"/>
+    <text x="530" y="529" text-anchor="middle" fill="#2D5A27" font-size="12" font-weight="700">٤</text>
+    <text x="826" y="516" text-anchor="end" fill="#1A3A18" font-size="16" font-weight="700">النساء</text>
+    <text x="826" y="536" text-anchor="end" fill="#888" font-size="12">مدنية · ١٧٦ آية</text>
+    <text x="500" y="548" fill="#888" font-size="10">An-Nisa</text>
+
+    <!-- Surah 5 -->
+    <rect x="494" y="568" width="342" height="68" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <circle cx="530" cy="602" r="18" fill="#F7F4EF"/>
+    <text x="530" y="607" text-anchor="middle" fill="#2D5A27" font-size="12" font-weight="700">٥</text>
+    <text x="826" y="594" text-anchor="end" fill="#1A3A18" font-size="16" font-weight="700">المائدة</text>
+    <text x="826" y="614" text-anchor="end" fill="#888" font-size="12">مدنية · ١٢٠ آية</text>
+    <text x="500" y="626" fill="#888" font-size="10">Al-Ma'idah</text>
+
+    <!-- Surah 6 -->
+    <rect x="494" y="646" width="342" height="68" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <circle cx="530" cy="680" r="18" fill="#F7F4EF"/>
+    <text x="530" y="685" text-anchor="middle" fill="#2D5A27" font-size="12" font-weight="700">٦</text>
+    <text x="826" y="672" text-anchor="end" fill="#1A3A18" font-size="16" font-weight="700">الأنعام</text>
+    <text x="826" y="692" text-anchor="end" fill="#888" font-size="12">مكية · ١٦٥ آية</text>
+    <text x="500" y="704" fill="#888" font-size="10">Al-An'am</text>
+
+    <!-- Surah 7 (partial) -->
+    <rect x="494" y="724" width="342" height="68" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <circle cx="530" cy="758" r="18" fill="#F7F4EF"/>
+    <text x="530" y="763" text-anchor="middle" fill="#2D5A27" font-size="12" font-weight="700">٧</text>
+    <text x="826" y="750" text-anchor="end" fill="#1A3A18" font-size="16" font-weight="700">الأعراف</text>
+    <text x="826" y="770" text-anchor="end" fill="#888" font-size="12">مكية · ٢٠٦ آية</text>
+
+    <!-- Bottom Nav -->
+    <rect x="470" y="798" width="390" height="86" fill="#FFFFFF"/>
+    <line x1="470" y1="798" x2="860" y2="798" stroke="#F0EDE8" stroke-width="1"/>
+    <rect x="494" y="814" width="58" height="44" rx="12" fill="#F7F4EF"/>
+    <polygon points="523,818 506,828 540,828" fill="#BDBDBD"/>
+    <rect x="543" y="826" width="14" height="2" rx="1" fill="#BDBDBD"/>
+    <text x="523" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">الرئيسية</text>
+
+    <rect x="576" y="814" width="58" height="44" rx="12" fill="#E8F5E4"/>
+    <rect x="594" y="822" width="22" height="28" rx="3" fill="#2D5A27"/>
+    <line x1="605" y1="822" x2="605" y2="850" stroke="#ffffff55" stroke-width="1.5"/>
+    <text x="605" y="867" text-anchor="middle" fill="#2D5A27" font-size="10" font-weight="600">القرآن</text>
+
+    <circle cx="666" cy="832" r="9" fill="none" stroke="#BDBDBD" stroke-width="2"/>
+    <line x1="666" y1="826" x2="666" y2="832" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="666" y1="832" x2="670" y2="832" stroke="#BDBDBD" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="666" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">الصلاة</text>
+
+    <circle cx="727" cy="832" r="9" fill="none" stroke="#BDBDBD" stroke-width="1.5"/>
+    <polygon points="727,822 729,832 727,830 725,832" fill="#BDBDBD"/>
+    <text x="727" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">القبلة</text>
+
+    <circle cx="788" cy="832" r="9" fill="none" stroke="#BDBDBD" stroke-width="2"/>
+    <circle cx="788" cy="832" r="4" fill="#BDBDBD"/>
+    <text x="788" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">الإعدادات</text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--                  SCREEN 3 — READING                           -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <rect x="900" y="40" width="390" height="844" rx="40" fill="#FFFDF7" filter="url(#shadow-strong)"/>
+  <g clip-path="url(#screen3)">
+    <!-- Header -->
+    <rect x="900" y="40" width="390" height="90" fill="url(#greenGrad)"/>
+
+    <!-- Back + title -->
+    <circle cx="924" cy="86" r="16" fill="#ffffff22"/>
+    <text x="924" y="91" text-anchor="middle" fill="#FFFFFF" font-size="16">‹</text>
+    <text x="1243" y="80" text-anchor="end" fill="#FFFFFF" font-size="18" font-weight="700">سورة الفاتحة</text>
+    <text x="1243" y="100" text-anchor="end" fill="#ffffff99" font-size="12">مكية · ٧ آيات</text>
+    <!-- Options icon -->
+    <circle cx="1270" cy="82" r="16" fill="#ffffff22"/>
+    <circle cx="1264" cy="82" r="2.5" fill="#FFF"/>
+    <circle cx="1270" cy="82" r="2.5" fill="#FFF"/>
+    <circle cx="1276" cy="82" r="2.5" fill="#FFF"/>
+
+    <!-- Reading area -->
+    <rect x="900" y="130" width="390" height="600" fill="#FFFDF7"/>
+
+    <!-- Bismillah -->
+    <rect x="924" y="148" width="342" height="52" rx="14" fill="#E8F5E4"/>
+    <text x="1095" y="180" text-anchor="middle" fill="#2D5A27" font-size="18" font-weight="600">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</text>
+
+    <!-- Ayat -->
+    <!-- Ayah 1 -->
+    <rect x="924" y="214" width="342" height="80" rx="12" fill="#FFFFFF" filter="url(#shadow)"/>
+    <circle cx="951" cy="254" r="16" fill="url(#greenGrad)"/>
+    <text x="951" y="259" text-anchor="middle" fill="#FFF" font-size="11">١</text>
+    <text x="1246" y="244" text-anchor="end" fill="#1A3A18" font-size="17" letter-spacing="0.5">الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ</text>
+    <text x="1246" y="268" text-anchor="end" fill="#888" font-size="12">Praise be to Allah, Lord of the Worlds</text>
+    <!-- Action icons -->
+    <rect x="928" y="280" width="24" height="24" rx="6" fill="#F7F4EF"/>
+    <path d="M936,287 L939,292 L944,287" fill="none" stroke="#BDBDBD" stroke-width="1.5"/>
+    <rect x="958" y="280" width="24" height="24" rx="6" fill="#F7F4EF"/>
+    <circle cx="970" cy="292" r="5" fill="none" stroke="#BDBDBD" stroke-width="1.5"/>
+    <circle cx="970" cy="292" r="2" fill="#BDBDBD"/>
+
+    <!-- Ayah 2 (highlighted/selected) -->
+    <rect x="924" y="306" width="342" height="80" rx="12" fill="#E8F5E4" filter="url(#shadow)"/>
+    <rect x="924" y="306" width="4" height="80" rx="2" fill="#2D5A27"/>
+    <circle cx="951" cy="346" r="16" fill="url(#greenGrad)"/>
+    <text x="951" y="351" text-anchor="middle" fill="#FFF" font-size="11">٢</text>
+    <text x="1246" y="334" text-anchor="end" fill="#1A3A18" font-size="17">الرَّحْمَٰنِ الرَّحِيمِ</text>
+    <text x="1246" y="358" text-anchor="end" fill="#666" font-size="12">The Most Gracious, the Most Merciful</text>
+    <rect x="928" y="370" width="24" height="24" rx="6" fill="#C8E6C9"/>
+    <path d="M936,377 L939,382 L944,377" fill="none" stroke="#2D5A27" stroke-width="1.5"/>
+
+    <!-- Ayah 3 -->
+    <rect x="924" y="398" width="342" height="80" rx="12" fill="#FFFFFF" filter="url(#shadow)"/>
+    <circle cx="951" cy="438" r="16" fill="#F0EDE8"/>
+    <text x="951" y="443" text-anchor="middle" fill="#2D5A27" font-size="11">٣</text>
+    <text x="1246" y="426" text-anchor="end" fill="#1A3A18" font-size="17">مَالِكِ يَوْمِ الدِّينِ</text>
+    <text x="1246" y="450" text-anchor="end" fill="#888" font-size="12">Master of the Day of Judgment</text>
+
+    <!-- Ayah 4 -->
+    <rect x="924" y="490" width="342" height="80" rx="12" fill="#FFFFFF" filter="url(#shadow)"/>
+    <circle cx="951" cy="530" r="16" fill="#F0EDE8"/>
+    <text x="951" y="535" text-anchor="middle" fill="#2D5A27" font-size="11">٤</text>
+    <text x="1246" y="518" text-anchor="end" fill="#1A3A18" font-size="17">إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ</text>
+    <text x="1246" y="542" text-anchor="end" fill="#888" font-size="12">You alone we worship, You alone we ask</text>
+
+    <!-- Ayah 5 -->
+    <rect x="924" y="582" width="342" height="80" rx="12" fill="#FFFFFF" filter="url(#shadow)"/>
+    <circle cx="951" cy="622" r="16" fill="#F0EDE8"/>
+    <text x="951" y="627" text-anchor="middle" fill="#2D5A27" font-size="11">٥</text>
+    <text x="1246" y="610" text-anchor="end" fill="#1A3A18" font-size="17">اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ</text>
+    <text x="1246" y="634" text-anchor="end" fill="#888" font-size="12">Guide us on the Straight Path</text>
+
+    <!-- Page indicator -->
+    <text x="1095" y="724" text-anchor="middle" fill="#888" font-size="13">صفحة ١ من ٣</text>
+    <rect x="1040" y="730" width="110" height="4" rx="2" fill="#E8E3DC"/>
+    <rect x="1040" y="730" width="36" height="4" rx="2" fill="#2D5A27"/>
+
+    <!-- Font controls -->
+    <rect x="924" y="748" width="342" height="40" rx="12" fill="#FFFFFF" filter="url(#shadow)"/>
+    <text x="948" y="773" fill="#888" font-size="11">أ</text>
+    <text x="960" y="773" fill="#1A3A18" font-size="15" font-weight="600">أ</text>
+    <text x="976" y="773" fill="#2D5A27" font-size="19" font-weight="700">أ</text>
+    <line x1="1000" y1="754" x2="1000" y2="782" stroke="#F0EDE8" stroke-width="1"/>
+    <text x="1245" y="773" text-anchor="end" fill="#888" font-size="12">حجم الخط</text>
+    <!-- Slider -->
+    <rect x="1010" y="767" width="140" height="4" rx="2" fill="#E8E3DC"/>
+    <rect x="1010" y="767" width="80" height="4" rx="2" fill="#2D5A27"/>
+    <circle cx="1090" cy="769" r="7" fill="#2D5A27"/>
+
+    <!-- Bottom Nav -->
+    <rect x="900" y="798" width="390" height="86" fill="#FFFFFF"/>
+    <line x1="900" y1="798" x2="1290" y2="798" stroke="#F0EDE8" stroke-width="1"/>
+    <rect x="924" y="814" width="58" height="44" rx="12" fill="#F7F4EF"/>
+    <polygon points="953,818 936,828 970,828" fill="#BDBDBD"/>
+    <text x="953" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">الرئيسية</text>
+    <rect x="1006" y="814" width="58" height="44" rx="12" fill="#E8F5E4"/>
+    <rect x="1024" y="822" width="22" height="28" rx="3" fill="#2D5A27"/>
+    <line x1="1035" y1="822" x2="1035" y2="850" stroke="#ffffff55" stroke-width="1.5"/>
+    <text x="1035" y="867" text-anchor="middle" fill="#2D5A27" font-size="10" font-weight="600">القرآن</text>
+    <circle cx="1096" cy="832" r="9" fill="none" stroke="#BDBDBD" stroke-width="2"/>
+    <text x="1096" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">الصلاة</text>
+    <circle cx="1157" cy="832" r="9" fill="none" stroke="#BDBDBD" stroke-width="1.5"/>
+    <polygon points="1157,822 1159,832 1157,830 1155,832" fill="#BDBDBD"/>
+    <text x="1157" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">القبلة</text>
+    <circle cx="1218" cy="832" r="9" fill="none" stroke="#BDBDBD" stroke-width="2"/>
+    <circle cx="1218" cy="832" r="4" fill="#BDBDBD"/>
+    <text x="1218" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">الإعدادات</text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--                SCREEN 4 — PRAYER TIMES                        -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <rect x="1330" y="40" width="390" height="844" rx="40" fill="#F7F4EF" filter="url(#shadow-strong)"/>
+  <g clip-path="url(#screen4)">
+    <rect x="1330" y="40" width="390" height="200" fill="url(#greenGrad)"/>
+    <circle cx="1660" cy="90" r="100" fill="#ffffff08"/>
+    <circle cx="1370" cy="200" r="60" fill="#ffffff05"/>
+
+    <text x="1690" y="68" text-anchor="end" fill="#ffffffaa" font-size="12">9:41</text>
+
+    <!-- Location -->
+    <circle cx="1354" cy="96" r="6" fill="none" stroke="#D4A847" stroke-width="1.5"/>
+    <circle cx="1354" cy="96" r="2.5" fill="#D4A847"/>
+    <text x="1362" y="100" fill="#ffffff99" font-size="12">القدس، فلسطين</text>
+
+    <text x="1690" y="120" text-anchor="end" fill="#FFFFFF" font-size="20" font-weight="700">أوقات الصلاة</text>
+    <text x="1690" y="144" text-anchor="end" fill="#ffffff99" font-size="13">الأربعاء ١٤ ذو الحجة ١٤٤٦</text>
+
+    <!-- Next prayer countdown -->
+    <rect x="1354" y="158" width="342" height="60" rx="16" fill="#ffffff18"/>
+    <text x="1690" y="183" text-anchor="end" fill="#ffffff99" font-size="12">الصلاة القادمة: العصر</text>
+    <text x="1362" y="205" fill="#D4A847" font-size="22" font-weight="800">٠١:٤٧:٣٢</text>
+    <text x="1690" y="205" text-anchor="end" fill="#ffffff88" font-size="13">متبقي</text>
+
+    <!-- Prayer Cards -->
+    <rect x="1330" y="230" width="390" height="510" fill="#F7F4EF"/>
+
+    <!-- Fajr -->
+    <rect x="1354" y="242" width="342" height="70" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <text x="1686" y="272" text-anchor="end" fill="#1A3A18" font-size="15" font-weight="600">الفجر</text>
+    <text x="1686" y="294" text-anchor="end" fill="#888" font-size="12">Fajr</text>
+    <text x="1362" y="285" fill="#555" font-size="20" font-weight="600">٠٤:٣٢</text>
+    <!-- Bell icon -->
+    <circle cx="1638" cy="278" r="14" fill="#F7F4EF"/>
+    <rect x="1632" y="272" width="12" height="10" rx="3" fill="#BDBDBD"/>
+    <path d="M1630,282 L1646,282" stroke="#BDBDBD" stroke-width="1.5"/>
+    <circle cx="1638" cy="285" r="2" fill="#BDBDBD"/>
+
+    <!-- Sunrise -->
+    <rect x="1354" y="322" width="342" height="70" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <text x="1686" y="352" text-anchor="end" fill="#1A3A18" font-size="15" font-weight="600">الشروق</text>
+    <text x="1686" y="374" text-anchor="end" fill="#888" font-size="12">Sunrise</text>
+    <text x="1362" y="365" fill="#555" font-size="20" font-weight="600">٠٦:٠١</text>
+    <!-- No bell (sunrise has no prayer) -->
+    <circle cx="1638" cy="358" r="14" fill="#F7F4EF"/>
+    <line x1="1634" y1="354" x2="1642" y2="362" stroke="#BDBDBD" stroke-width="1.5"/>
+    <line x1="1634" y1="362" x2="1642" y2="354" stroke="#BDBDBD" stroke-width="1.5"/>
+
+    <!-- Dhuhr -->
+    <rect x="1354" y="402" width="342" height="70" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <text x="1686" y="432" text-anchor="end" fill="#1A3A18" font-size="15" font-weight="600">الظهر</text>
+    <text x="1686" y="454" text-anchor="end" fill="#888" font-size="12">Dhuhr</text>
+    <text x="1362" y="445" fill="#555" font-size="20" font-weight="600">١٢:١٥</text>
+    <circle cx="1638" cy="438" r="14" fill="#F7F4EF"/>
+    <rect x="1632" y="432" width="12" height="10" rx="3" fill="#BDBDBD"/>
+    <path d="M1630,442 L1646,442" stroke="#BDBDBD" stroke-width="1.5"/>
+    <circle cx="1638" cy="445" r="2" fill="#BDBDBD"/>
+
+    <!-- Asr (ACTIVE) -->
+    <rect x="1354" y="482" width="342" height="70" rx="14" fill="url(#prayerCard)" filter="url(#shadow-strong)"/>
+    <rect x="1354" y="482" width="5" height="70" rx="2.5" fill="#D4A847"/>
+    <text x="1686" y="512" text-anchor="end" fill="#FFFFFF" font-size="15" font-weight="700">العصر</text>
+    <text x="1686" y="534" text-anchor="end" fill="#ffffff88" font-size="12">Asr · الآن</text>
+    <text x="1362" y="525" fill="#D4A847" font-size="22" font-weight="800">٠٤:٢٣</text>
+    <circle cx="1638" cy="518" r="14" fill="#ffffff22"/>
+    <rect x="1632" y="512" width="12" height="10" rx="3" fill="#FFF"/>
+    <path d="M1630,522 L1646,522" stroke="#FFF" stroke-width="1.5"/>
+    <circle cx="1638" cy="525" r="2" fill="#FFF"/>
+
+    <!-- Maghrib -->
+    <rect x="1354" y="562" width="342" height="70" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <text x="1686" y="592" text-anchor="end" fill="#1A3A18" font-size="15" font-weight="600">المغرب</text>
+    <text x="1686" y="614" text-anchor="end" fill="#888" font-size="12">Maghrib</text>
+    <text x="1362" y="605" fill="#555" font-size="20" font-weight="600">٠٧:٠٨</text>
+    <circle cx="1638" cy="598" r="14" fill="#F7F4EF"/>
+    <rect x="1632" y="592" width="12" height="10" rx="3" fill="#BDBDBD"/>
+    <path d="M1630,602 L1646,602" stroke="#BDBDBD" stroke-width="1.5"/>
+    <circle cx="1638" cy="605" r="2" fill="#BDBDBD"/>
+
+    <!-- Isha -->
+    <rect x="1354" y="642" width="342" height="70" rx="14" fill="#FFFFFF" filter="url(#shadow)"/>
+    <text x="1686" y="672" text-anchor="end" fill="#1A3A18" font-size="15" font-weight="600">العشاء</text>
+    <text x="1686" y="694" text-anchor="end" fill="#888" font-size="12">Isha</text>
+    <text x="1362" y="685" fill="#555" font-size="20" font-weight="600">٠٨:٣٩</text>
+    <circle cx="1638" cy="678" r="14" fill="#F7F4EF"/>
+    <rect x="1632" y="672" width="12" height="10" rx="3" fill="#2D5A27"/>
+    <path d="M1630,682 L1646,682" stroke="#2D5A27" stroke-width="1.5"/>
+    <circle cx="1638" cy="685" r="2" fill="#2D5A27"/>
+
+    <!-- Hijri date card -->
+    <rect x="1354" y="724" width="342" height="44" rx="12" fill="#FFFFFF" filter="url(#shadow)"/>
+    <text x="1686" y="750" text-anchor="end" fill="#2D5A27" font-size="13" font-weight="600">١٤ ذو الحجة ١٤٤٦ هـ</text>
+    <text x="1362" y="750" fill="#888" font-size="13">11 Jun 2026</text>
+
+    <!-- Bottom Nav -->
+    <rect x="1330" y="798" width="390" height="86" fill="#FFFFFF"/>
+    <line x1="1330" y1="798" x2="1720" y2="798" stroke="#F0EDE8" stroke-width="1"/>
+    <rect x="1354" y="814" width="58" height="44" rx="12" fill="#F7F4EF"/>
+    <polygon points="1383,818 1366,828 1400,828" fill="#BDBDBD"/>
+    <text x="1383" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">الرئيسية</text>
+    <rect x="1436" y="820" width="16" height="20" rx="2" fill="#BDBDBD"/>
+    <text x="1444" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">القرآن</text>
+    <rect x="1496" y="814" width="58" height="44" rx="12" fill="#E8F5E4"/>
+    <circle cx="1525" cy="832" r="9" fill="none" stroke="#2D5A27" stroke-width="2"/>
+    <line x1="1525" y1="826" x2="1525" y2="832" stroke="#2D5A27" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="1525" y1="832" x2="1529" y2="832" stroke="#2D5A27" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="1525" y="867" text-anchor="middle" fill="#2D5A27" font-size="10" font-weight="600">الصلاة</text>
+    <circle cx="1636" cy="832" r="9" fill="none" stroke="#BDBDBD" stroke-width="1.5"/>
+    <polygon points="1636,822 1638,832 1636,830 1634,832" fill="#BDBDBD"/>
+    <text x="1636" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">القبلة</text>
+    <circle cx="1697" cy="832" r="9" fill="none" stroke="#BDBDBD" stroke-width="2"/>
+    <circle cx="1697" cy="832" r="4" fill="#BDBDBD"/>
+    <text x="1697" y="867" text-anchor="middle" fill="#BDBDBD" font-size="10">الإعدادات</text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!--                   SCREEN 5 — QIBLA                            -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <rect x="1760" y="40" width="390" height="844" rx="40" fill="#0F2010" filter="url(#shadow-strong)"/>
+  <g clip-path="url(#screen5)">
+    <rect x="1760" y="40" width="390" height="844" fill="#0F2010"/>
+
+    <!-- Stars bg -->
+    <circle cx="1800" cy="100" r="1.5" fill="#ffffff44"/>
+    <circle cx="1870" cy="80" r="1" fill="#ffffff33"/>
+    <circle cx="1920" cy="120" r="1.5" fill="#ffffff55"/>
+    <circle cx="1980" cy="70" r="1" fill="#ffffff44"/>
+    <circle cx="2050" cy="90" r="2" fill="#ffffff33"/>
+    <circle cx="2100" cy="110" r="1" fill="#ffffff44"/>
+    <circle cx="2130" cy="60" r="1.5" fill="#ffffff33"/>
+    <circle cx="1830" cy="160" r="1" fill="#ffffff22"/>
+    <circle cx="2080" cy="150" r="1.5" fill="#ffffff33"/>
+    <circle cx="2000" cy="200" r="1" fill="#ffffff22"/>
+
+    <!-- Status -->
+    <text x="2110" y="68" text-anchor="end" fill="#ffffff55" font-size="12">9:41</text>
+
+    <!-- Header -->
+    <circle cx="1784" cy="86" r="16" fill="#ffffff15"/>
+    <text x="1784" y="91" text-anchor="middle" fill="#FFF" font-size="16">‹</text>
+    <text x="2110" y="82" text-anchor="end" fill="#FFFFFF" font-size="20" font-weight="700">اتجاه القبلة</text>
+    <text x="2110" y="106" text-anchor="end" fill="#ffffff55" font-size="12">القدس، فلسطين</text>
+
+    <!-- Compass outer ring -->
+    <circle cx="1955" cy="370" r="170" fill="#ffffff08" stroke="#ffffff15" stroke-width="1"/>
+    <!-- Compass middle ring -->
+    <circle cx="1955" cy="370" r="140" fill="#ffffff06" stroke="#D4A84730" stroke-width="1"/>
+    <!-- Compass inner ring -->
+    <circle cx="1955" cy="370" r="110" fill="#0F2010" stroke="#2D5A2760" stroke-width="2"/>
+
+    <!-- Degree marks -->
+    <line x1="1955" y1="202" x2="1955" y2="216" stroke="#ffffff33" stroke-width="2"/>
+    <line x1="2123" y1="370" x2="2109" y2="370" stroke="#ffffff33" stroke-width="2"/>
+    <line x1="1955" y1="538" x2="1955" y2="524" stroke="#ffffff33" stroke-width="2"/>
+    <line x1="1787" y1="370" x2="1801" y2="370" stroke="#ffffff33" stroke-width="2"/>
+    <!-- Minor marks -->
+    <line x1="2075" y1="250" x2="2065" y2="260" stroke="#ffffff22" stroke-width="1"/>
+    <line x1="2075" y1="490" x2="2065" y2="480" stroke="#ffffff22" stroke-width="1"/>
+    <line x1="1835" y1="490" x2="1845" y2="480" stroke="#ffffff22" stroke-width="1"/>
+    <line x1="1835" y1="250" x2="1845" y2="260" stroke="#ffffff22" stroke-width="1"/>
+
+    <!-- Cardinal directions -->
+    <text x="1955" y="196" text-anchor="middle" fill="#E53935" font-size="16" font-weight="700">N</text>
+    <text x="2128" y="375" text-anchor="middle" fill="#ffffff77" font-size="14" font-weight="600">E</text>
+    <text x="1955" y="552" text-anchor="middle" fill="#ffffff77" font-size="14" font-weight="600">S</text>
+    <text x="1782" y="375" text-anchor="middle" fill="#ffffff77" font-size="14" font-weight="600">W</text>
+
+    <!-- Qibla direction needle (pointing ~130° SE for Palestine to Mecca) -->
+    <g transform="rotate(130, 1955, 370)">
+      <!-- Needle to Mecca (gold) -->
+      <polygon points="1955,245 1962,360 1955,370 1948,360" fill="url(#goldGrad)"/>
+      <!-- Needle opposite (dark) -->
+      <polygon points="1955,495 1962,380 1955,370 1948,380" fill="#ffffff22"/>
+    </g>
+
+    <!-- Center circle -->
+    <circle cx="1955" cy="370" r="22" fill="url(#greenGrad)" filter="url(#shadow)"/>
+    <!-- Kaaba icon in center -->
+    <rect x="1947" y="362" width="16" height="16" rx="2" fill="#D4A847"/>
+    <rect x="1949" y="364" width="4" height="7" rx="1" fill="#0F2010"/>
+
+    <!-- Kaaba silhouette subtle -->
+    <text x="1955" y="374" text-anchor="middle" fill="#0F2010" font-size="10" font-weight="700">🕋</text>
+
+    <!-- Angle indicator -->
+    <rect x="1854" y="570" width="202" height="48" rx="14" fill="#ffffff12"/>
+    <text x="1955" y="589" text-anchor="middle" fill="#ffffff66" font-size="11">اتجاه القبلة</text>
+    <text x="1955" y="610" text-anchor="middle" fill="#D4A847" font-size="22" font-weight="800">١٣٢°</text>
+
+    <!-- Info cards -->
+    <rect x="1784" y="636" width="160" height="76" rx="16" fill="#ffffff0D" stroke="#ffffff15" stroke-width="1"/>
+    <text x="1934" y="664" text-anchor="end" fill="#ffffff66" font-size="11">المسافة إلى مكة</text>
+    <text x="1934" y="692" text-anchor="end" fill="#FFFFFF" font-size="18" font-weight="700">١٢٤٥</text>
+    <text x="1784" y="706" fill="#ffffff55" font-size="11">  كيلومتر</text>
+
+    <rect x="1956" y="636" width="160" height="76" rx="16" fill="#ffffff0D" stroke="#ffffff15" stroke-width="1"/>
+    <text x="2106" y="664" text-anchor="end" fill="#ffffff66" font-size="11">دقة الموقع</text>
+    <!-- Accuracy dots -->
+    <circle cx="1972" cy="676" r="5" fill="#4CAF50"/>
+    <circle cx="1984" cy="676" r="5" fill="#4CAF50"/>
+    <circle cx="1996" cy="676" r="5" fill="#4CAF50"/>
+    <circle cx="2008" cy="676" r="5" fill="#4CAF50"/>
+    <circle cx="2020" cy="676" r="5" fill="#ffffff22"/>
+    <text x="2106" y="706" text-anchor="end" fill="#ffffff99" font-size="13">ممتازة</text>
+
+    <!-- Calibration hint -->
+    <rect x="1784" y="728" width="332" height="40" rx="12" fill="#D4A84722"/>
+    <text x="1955" y="753" text-anchor="middle" fill="#D4A847" font-size="12">↻  حرّك هاتفك بشكل رقم ٨ لمعايرة البوصلة</text>
+
+    <!-- Bottom Nav (dark theme) -->
+    <rect x="1760" y="798" width="390" height="86" fill="#1A3018"/>
+    <line x1="1760" y1="798" x2="2150" y2="798" stroke="#ffffff15" stroke-width="1"/>
+    <rect x="1784" y="814" width="58" height="44" rx="12" fill="#ffffff0D"/>
+    <polygon points="1813,818 1796,828 1830,828" fill="#ffffff55"/>
+    <text x="1813" y="867" text-anchor="middle" fill="#ffffff55" font-size="10">الرئيسية</text>
+    <rect x="1866" y="820" width="16" height="20" rx="2" fill="#ffffff44"/>
+    <text x="1874" y="867" text-anchor="middle" fill="#ffffff55" font-size="10">القرآن</text>
+    <circle cx="1935" cy="832" r="9" fill="none" stroke="#ffffff44" stroke-width="2"/>
+    <text x="1935" y="867" text-anchor="middle" fill="#ffffff55" font-size="10">الصلاة</text>
+    <rect x="1966" y="814" width="58" height="44" rx="12" fill="#2D5A2788"/>
+    <circle cx="1995" cy="832" r="9" fill="none" stroke="#D4A847" stroke-width="1.5"/>
+    <polygon points="1995,822 1997,832 1995,830 1993,832" fill="#D4A847"/>
+    <text x="1995" y="867" text-anchor="middle" fill="#D4A847" font-size="10" font-weight="600">القبلة</text>
+    <circle cx="2056" cy="832" r="9" fill="none" stroke="#ffffff44" stroke-width="2"/>
+    <circle cx="2056" cy="832" r="4" fill="#ffffff44"/>
+    <text x="2056" y="867" text-anchor="middle" fill="#ffffff55" font-size="10">الإعدادات</text>
+  </g>
+
+  <!-- Screen borders/frames -->
+  <rect x="40" y="40" width="390" height="844" rx="40" fill="none" stroke="#00000015" stroke-width="1"/>
+  <rect x="470" y="40" width="390" height="844" rx="40" fill="none" stroke="#00000015" stroke-width="1"/>
+  <rect x="900" y="40" width="390" height="844" rx="40" fill="none" stroke="#00000015" stroke-width="1"/>
+  <rect x="1330" y="40" width="390" height="844" rx="40" fill="none" stroke="#00000015" stroke-width="1"/>
+  <rect x="1760" y="40" width="390" height="844" rx="40" fill="none" stroke="#00000015" stroke-width="1"/>
+
+</svg>
