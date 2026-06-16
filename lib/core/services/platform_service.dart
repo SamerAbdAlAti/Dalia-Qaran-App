@@ -17,6 +17,16 @@ class PlatformService {
     } catch (_) {}
   }
 
+  /// يفتح إعدادات Autostart في MIUI، أو إعدادات التطبيق العامة في غير MIUI
+  /// يُرجع true إذا فتح MIUI Autostart، false إذا فتح الإعدادات العامة
+  static Future<bool> openMiuiAutostart() async {
+    try {
+      return await _channel.invokeMethod<bool>('openMiuiAutostart') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<String?> getFileProviderUri(String filePath) async {
     try {
       return await _channel.invokeMethod<String>(

@@ -54,6 +54,10 @@ class QiblaPermissionDenied extends QiblaState {
   const QiblaPermissionDenied();
 }
 
+class QiblaNoLocation extends QiblaState {
+  const QiblaNoLocation();
+}
+
 class QiblaError extends QiblaState {
   final String message;
   const QiblaError(this.message);
@@ -76,6 +80,8 @@ class QiblaCubit extends Cubit<QiblaState> {
       (failure) {
         if (failure.message.contains('permission_denied')) {
           emit(const QiblaPermissionDenied());
+        } else if (failure.message.contains('no_location_saved')) {
+          emit(const QiblaNoLocation());
         } else {
           emit(QiblaError(failure.message));
         }

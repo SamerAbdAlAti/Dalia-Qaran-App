@@ -22,11 +22,7 @@ class QiblaLocalDatasource {
       latitude = savedLat;
       longitude = savedLng;
     } else {
-      final pos = await _getCurrentPosition();
-      latitude = pos.latitude;
-      longitude = pos.longitude;
-      await prefs.setDouble(AppConstants.keyLatitude, latitude);
-      await prefs.setDouble(AppConstants.keyLongitude, longitude);
+      throw Exception('no_location_saved');
     }
 
     final coordinates = Coordinates(latitude, longitude);

@@ -16,12 +16,15 @@ class MushafRepositoryImpl implements MushafRepository {
       return Right(MushafInitData(
         surahInfos: datasource.getSurahInfos(),
         surahFirstPages: datasource.getSurahFirstPages(),
+        juzFirstPages: datasource.getJuzFirstPages(),
         lastReadPage: datasource.getLastReadPage(),
         lastReadSurahName: datasource.getLastReadSurahName(),
         lastReadJuz: datasource.getLastReadJuz(),
         bookmarks: datasource.getBookmarks(),
         readPages: datasource.getReadPages(),
+        pageBookmarks: datasource.getPageBookmarks(),
         tajweedMode: datasource.getTajweedMode(),
+        fontWeight: datasource.getFontWeight(),
       ));
     } catch (e) {
       return Left(DatabaseFailure('فشل تحميل المصحف: $e'));

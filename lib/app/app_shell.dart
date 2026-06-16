@@ -7,6 +7,7 @@ import '../features/home/presentation/cubit/home_cubit.dart';
 import '../features/home/presentation/pages/home_page.dart';
 import '../features/home/presentation/pages/prayer_page.dart';
 import '../features/quran/presentation/pages/surah_list_page.dart';
+import '../features/quran/presentation/pages/mushaf_viewer_page.dart';
 import '../features/qibla/presentation/pages/qibla_page.dart';
 import '../features/settings/presentation/pages/settings_page.dart';
 
@@ -33,7 +34,16 @@ class _AppShellState extends State<AppShell> {
     ];
   }
 
-  void _navigateTo(int index) => setState(() => _currentIndex = index);
+  void _navigateTo(int index) {
+    if (index == 1) {
+      // Push MushafViewerPage directly — it reads lastReadPage from its cubit
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const MushafViewerPage()),
+      );
+    } else {
+      setState(() => _currentIndex = index);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

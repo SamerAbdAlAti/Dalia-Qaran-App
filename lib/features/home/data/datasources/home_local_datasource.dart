@@ -59,24 +59,34 @@ class HomeLocalDatasource {
 
     // 1. آخر موقع محفوظ — فوري
     final last = await Geolocator.getLastKnownPosition();
-    if (last != null) return last;
+    if (last != null) {
+      // ignore: avoid_print
+      print('[Location] last known: ${last.latitude}, ${last.longitude} (accuracy: ${last.accuracy}m)');
+      return last;
+    }
 
     // 2. موقع الشبكة (WiFi/خلية) — سريع جداً
     try {
-      return await Geolocator.getCurrentPosition(
+      final pos = await Geolocator.getCurrentPosition(
         locationSettings:
             const LocationSettings(accuracy: LocationAccuracy.medium),
-      ).timeout(const Duration(seconds: 8));
+      ).timeout(const Duration(seconds: 5));
+      // ignore: avoid_print
+      print('[Location] network: ${pos.latitude}, ${pos.longitude} (accuracy: ${pos.accuracy}m)');
+      return pos;
     } catch (_) {}
 
-    // 3. GPS — أبطأ، مهلة 30 ثانية
-    return Geolocator.getCurrentPosition(
+    // 3. GPS — أبطأ، مهلة 12 ثانية
+    final pos = await Geolocator.getCurrentPosition(
       locationSettings:
           const LocationSettings(accuracy: LocationAccuracy.low),
     ).timeout(
-      const Duration(seconds: 30),
+      const Duration(seconds: 12),
       onTimeout: () => throw Exception('انتهت مهلة تحديد الموقع'),
     );
+    // ignore: avoid_print
+    print('[Location] GPS: ${pos.latitude}, ${pos.longitude} (accuracy: ${pos.accuracy}m)');
+    return pos;
   }
 
   CalculationParameters _paramsFor(String method) {

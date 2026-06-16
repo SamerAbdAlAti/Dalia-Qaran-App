@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +15,7 @@ import '../cubit/mushaf_cubit.dart';
 
 const _bismillah = 'بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ';
 const _totalPages = 604;
+const _quranFont = 'AmiriQuran'; // Uthmani-style Quran font (Aliftype, OFL license)
 
 String _toArabicNum(int n) {
   const d = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -48,7 +51,10 @@ class _MushafViewerPageState extends State<MushafViewerPage> {
 
   @override
   void dispose() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     super.dispose();
   }
 
@@ -75,6 +81,10 @@ class _MushafContent extends StatefulWidget {
 class _MushafContentState extends State<_MushafContent> {
   PageController? _pageController;
   bool _showControls = true;
+
+  void _goToPage(int page) {
+    _pageController?.jumpToPage(page - 1);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,6 +117,7 @@ class _MushafContentState extends State<_MushafContent> {
             controller: _pageController!,
             showControls: _showControls,
             onTap: () => setState(() => _showControls = !_showControls),
+            onGoToPage: _goToPage,
           );
         }
         return _LoadingView();
@@ -128,12 +139,14 @@ class _ReaderView extends StatelessWidget {
   final PageController controller;
   final bool showControls;
   final VoidCallback onTap;
+  final void Function(int page) onGoToPage;
 
   const _ReaderView({
     required this.state,
     required this.controller,
     required this.showControls,
     required this.onTap,
+    required this.onGoToPage,
   });
 
   @override
@@ -143,6 +156,7 @@ class _ReaderView extends StatelessWidget {
     return Scaffold(
       backgroundColor:
           isDark ? const Color(0xFF0F0D08) : const Color(0xFFEDE8D5),
+      drawer: _MushafDrawer(state: state, onGoToPage: onGoToPage),
       body: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.translucent,
@@ -198,6 +212,7 @@ class _TopBar extends StatelessWidget {
         : '';
 
     final progress = (state.readingProgress * 100).toStringAsFixed(0);
+    final isPageBookmarked = state.pageBookmarks.contains(state.currentPage);
 
     return Positioned(
       top: 0,
@@ -219,6 +234,14 @@ class _TopBar extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: 12.w),
           child: Row(
             children: [
+              // Menu button — opens drawer (rightmost in RTL = start side)
+              GestureDetector(
+                onTap: () => Scaffold.of(context).openDrawer(),
+                child: Padding(
+                  padding: EdgeInsets.all(8.r),
+                  child: Icon(Icons.format_list_bulleted, color: Colors.white, size: 20.r),
+                ),
+              ),
               GestureDetector(
                 onTap: () => Navigator.of(context).pop(),
                 child: Padding(
@@ -226,21 +249,17 @@ class _TopBar extends StatelessWidget {
                   child: Icon(Icons.close, color: Colors.white, size: 20.r),
                 ),
               ),
-              // Tajweed toggle
+              // Page bookmark toggle
               GestureDetector(
-                onTap: () => context.read<MushafCubit>().toggleTajweed(),
+                onTap: () => context.read<MushafCubit>().togglePageBookmark(state.currentPage),
                 child: Padding(
                   padding: EdgeInsets.all(8.r),
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
                     child: Icon(
-                      state.tajweedMode
-                          ? Icons.color_lens
-                          : Icons.color_lens_outlined,
-                      key: ValueKey(state.tajweedMode),
-                      color: state.tajweedMode
-                          ? AppColors.goldLight
-                          : Colors.white.withAlpha(180),
+                      isPageBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                      key: ValueKey(isPageBookmarked),
+                      color: isPageBookmarked ? AppColors.gold : Colors.white.withAlpha(180),
                       size: 20.r,
                     ),
                   ),
@@ -456,6 +475,8 @@ class _PageContent extends StatelessWidget {
         pageData: pageData,
         isDark: isDark,
         textColor: textColor,
+        tajweedMode: state.tajweedMode,
+        fontWeight: state.fontWeight,
       );
     }
     return _AyahBasedContent(
@@ -467,66 +488,247 @@ class _PageContent extends StatelessWidget {
   }
 }
 
+// ─── Helpers for line text ───
+
+// Matches ayah end markers: optional ۝ (U+06DD) followed by Arabic-Indic digits
+// The ۝ prefix is added by the generation script; older data may have digits only.
+final _ayahMarkerPattern = RegExp(r'۝?[٠-٩]+');
+
+int _arabicIndicToInt(String s) {
+  const digits = '٠١٢٣٤٥٦٧٨٩';
+  // Strip ۝ if present, then convert digits
+  final cleaned = s.replaceAll('۝', '');
+  return int.parse(
+    cleaned.split('').map((c) {
+      final i = digits.indexOf(c);
+      return i >= 0 ? '$i' : c;
+    }).join(),
+    radix: 10,
+  );
+}
+
+List<InlineSpan> _buildLineSpans({
+  required String text,
+  required TextStyle baseStyle,
+  required double badgeSize,
+  bool tajweedMode = false,
+  bool isDark = false,
+}) {
+  final spans = <InlineSpan>[];
+  int last = 0;
+
+  for (final m in _ayahMarkerPattern.allMatches(text)) {
+    if (m.start > last) {
+      final segment = text.substring(last, m.start);
+      if (tajweedMode) {
+        spans.add(TajweedColorizer.build(
+          text: segment,
+          baseColor: baseStyle.color ?? Colors.black,
+          isDark: isDark,
+        ));
+      } else {
+        spans.add(TextSpan(text: segment, style: baseStyle));
+      }
+    }
+    spans.add(WidgetSpan(
+      alignment: PlaceholderAlignment.middle,
+      child: _AyahEndBadge(
+        number: _arabicIndicToInt(m.group(0)!),
+        size: badgeSize,
+      ),
+    ));
+    last = m.end;
+  }
+  if (last < text.length) {
+    final segment = text.substring(last);
+    if (tajweedMode) {
+      spans.add(TajweedColorizer.build(
+        text: segment,
+        baseColor: baseStyle.color ?? Colors.black,
+        isDark: isDark,
+      ));
+    } else {
+      spans.add(TextSpan(text: segment, style: baseStyle));
+    }
+  }
+  return spans;
+}
+
 // ─── Line-based rendering (exact Mushaf layout when quran_lines.json exists) ───
 
 class _LineBasedContent extends StatelessWidget {
   final MushafPageEntity pageData;
   final bool isDark;
   final Color textColor;
+  final bool tajweedMode;
+  final int fontWeight;
 
   const _LineBasedContent({
     required this.pageData,
     required this.isDark,
     required this.textColor,
+    this.tajweedMode = false,
+    this.fontWeight = 400,
   });
+
+  // Pass 1: find the largest font size where the widest line still fits.
+  // Pass 2: for each non-centered line compute extra word spacing so it fills
+  //         the available width (approximating Mushaf kashida justification).
+  static ({double fontSize, List<double?> wordSpacings}) _computePageLayout(
+    List<MushafLine> lines,
+    double candidateSize,
+    double maxWidth,
+    FontWeight fontWeight,
+  ) {
+    // ── Pass 1: global font size ──
+    double size = candidateSize;
+    for (final line in lines) {
+      if (line.type == MushafLineType.surahName) continue;
+      final text = line.text.replaceAll(_ayahMarkerPattern, '');
+      if (text.trim().isEmpty) continue;
+      final tp = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(fontFamily: _quranFont, fontSize: size, fontWeight: fontWeight, height: 1.0),
+        ),
+        textDirection: TextDirection.rtl,
+        maxLines: 1,
+      )..layout(maxWidth: double.infinity);
+      if (tp.width > maxWidth) {
+        size = (size * maxWidth / tp.width * 0.97).clamp(10.0, candidateSize);
+      }
+    }
+
+    // ── Pass 2: per-line word spacing for justification ──
+    final badgeW = size * 0.9; // approximate badge widget width at this size
+    final spacings = <double?>[];
+    for (final line in lines) {
+      final skip = line.type == MushafLineType.surahName ||
+          line.type == MushafLineType.basmala ||
+          line.isCentered;
+      if (skip) { spacings.add(null); continue; }
+
+      final text = line.text.replaceAll(_ayahMarkerPattern, '');
+      final gaps = text.trim().split(RegExp(r'\s+')).length - 1;
+      if (gaps <= 0) { spacings.add(null); continue; }
+
+      final markerCount = _ayahMarkerPattern.allMatches(line.text).length;
+      final tp = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(fontFamily: _quranFont, fontSize: size, fontWeight: fontWeight, height: 1.0),
+        ),
+        textDirection: TextDirection.rtl,
+        maxLines: 1,
+      )..layout(maxWidth: double.infinity);
+
+      // Available space after text + badges; skip if line is already near-full
+      final extra = maxWidth - tp.width - markerCount * badgeW;
+      spacings.add(extra > 3 ? extra / gaps : null);
+    }
+
+    return (fontSize: size, wordSpacings: spacings);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final lines = pageData.lines!;
+    // Filter blank lines — they add white space and cause overflow
+    final lines = pageData.lines!
+        .where((l) => l.type == MushafLineType.surahName || l.text.trim().isNotEmpty)
+        .toList();
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: 6.w),
       child: LayoutBuilder(
         builder: (ctx, constraints) {
-          final count = lines.length.clamp(1, 20);
-          final lineH = constraints.maxHeight / count;
-          final fontSize = (lineH * 0.50).clamp(14.0, 28.0);
+          // Surah name lines occupy 2.2 normal-line slots — account for this in baseLineH
+          final surahNameCount = lines.where((l) => l.type == MushafLineType.surahName).length;
+          final effectiveSlots = (lines.length - surahNameCount) + surahNameCount * 2.2;
+          final baseLineH = constraints.maxHeight / effectiveSlots;
+          final candidateSize = (baseLineH * 0.52).clamp(12.0, 22.0);
+          final fw = FontWeight.values.firstWhere(
+            (w) => w.value == fontWeight,
+            orElse: () => FontWeight.w400,
+          );
+          final layout = _computePageLayout(lines, candidateSize, constraints.maxWidth, fw);
+          final textFontSize = layout.fontSize;
+          final wordSpacings = layout.wordSpacings;
+          final badgeSize = (textFontSize * 0.9).clamp(12.0, 20.0);
 
           return Column(
-            children: lines.map((line) {
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: List.generate(lines.length, (i) {
+              final line = lines[i];
               final isSurahName = line.type == MushafLineType.surahName;
               final isBasmala = line.type == MushafLineType.basmala;
-              final isSpecial = isSurahName || isBasmala;
-
-              Color lineColor = textColor;
-              FontWeight weight = FontWeight.w400;
+              final isCentered = line.isCentered || isBasmala;
 
               if (isSurahName) {
-                lineColor = isDark ? AppColors.goldLight : AppColors.primaryDark;
-                weight = FontWeight.w700;
-              } else if (isBasmala) {
-                weight = FontWeight.w500;
+                return _SurahNameHeader(
+                  rawText: line.text,
+                  height: baseLineH * 2.2,
+                  isDark: isDark,
+                );
+              }
+
+              final style = TextStyle(
+                fontFamily: _quranFont,
+                fontSize: isBasmala ? textFontSize * 1.05 : textFontSize,
+                color: textColor,
+                fontWeight: isBasmala
+                    ? (fw.value >= FontWeight.w500.value ? fw : FontWeight.w500)
+                    : fw,
+                height: 1.0,
+                wordSpacing: wordSpacings[i],
+              );
+
+              final hasMarkers = _ayahMarkerPattern.hasMatch(line.text);
+
+              Widget textWidget;
+              if (hasMarkers) {
+                textWidget = Text.rich(
+                  TextSpan(
+                    style: style,
+                    children: _buildLineSpans(
+                      text: line.text,
+                      baseStyle: style,
+                      badgeSize: badgeSize,
+                      tajweedMode: tajweedMode,
+                      isDark: isDark,
+                    ),
+                  ),
+                  textDirection: TextDirection.rtl,
+                  maxLines: 1,
+                  softWrap: false,
+                );
+              } else if (tajweedMode) {
+                textWidget = Text.rich(
+                  TajweedColorizer.build(
+                    text: line.text,
+                    baseColor: textColor,
+                    isDark: isDark,
+                  ),
+                  style: style,
+                  textDirection: TextDirection.rtl,
+                  maxLines: 1,
+                  softWrap: false,
+                );
+              } else {
+                textWidget = Text(
+                  line.text,
+                  textDirection: TextDirection.rtl,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: style,
+                );
               }
 
               return SizedBox(
-                height: lineH,
-                child: Center(
-                  child: Text(
-                    line.text,
-                    textAlign: line.isCentered || isSpecial
-                        ? TextAlign.center
-                        : TextAlign.justify,
-                    textDirection: TextDirection.rtl,
-                    maxLines: 1,
-                    overflow: TextOverflow.visible,
-                    style: TextStyle(
-                      fontFamily: 'ScheherazadeNew',
-                      fontSize: isSpecial ? fontSize * 0.95 : fontSize,
-                      color: lineColor,
-                      fontWeight: weight,
-                      height: 1.0,
-                    ),
-                  ),
+                height: baseLineH,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: isCentered ? Alignment.center : Alignment.centerRight,
+                  child: textWidget,
                 ),
               );
             }).toList(),
@@ -535,6 +737,275 @@ class _LineBasedContent extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Ayah rosette painter (shared by both badge types) ───
+
+class _AyahRosettePainter extends CustomPainter {
+  final bool hasBookmark;
+  const _AyahRosettePainter({this.hasBookmark = false});
+
+  static const _gold      = Color(0xFFC8A84B);
+  static const _goldDeep  = Color(0xFF8B6B14);
+  static const _goldLight = Color(0xFFEDD570);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = size.width / 2;
+    final center = Offset(r, r);
+
+    // 8 small circles arranged in a ring → creates the classic rosette petal effect
+    const petals = 8;
+    final petalR  = r * 0.30;
+    final orbitR  = r - petalR * 0.62;
+    final petalPaint = Paint()..color = _gold..style = PaintingStyle.fill;
+
+    for (int i = 0; i < petals; i++) {
+      final angle = (i / petals) * 2 * pi - pi / 2;
+      canvas.drawCircle(
+        Offset(center.dx + orbitR * cos(angle), center.dy + orbitR * sin(angle)),
+        petalR,
+        petalPaint,
+      );
+    }
+
+    // Central gradient circle covers petal gaps and provides main background
+    final innerR = r * 0.65;
+    final shader = const RadialGradient(
+      center: Alignment(-0.25, -0.35),
+      colors: [_goldLight, _gold, _goldDeep],
+      stops: [0.0, 0.5, 1.0],
+    ).createShader(Rect.fromCircle(center: center, radius: innerR));
+
+    canvas.drawCircle(center, innerR, Paint()..shader = shader);
+
+    // Subtle inner ring for depth
+    canvas.drawCircle(
+      center,
+      innerR * 0.82,
+      Paint()
+        ..color = Colors.white.withAlpha(45)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.7,
+    );
+
+    // Bookmark: small red dot top-right
+    if (hasBookmark) {
+      canvas.drawCircle(
+        Offset(center.dx + r * 0.60, center.dy - r * 0.60),
+        r * 0.22,
+        Paint()..color = const Color(0xFFE53935),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_AyahRosettePainter old) => old.hasBookmark != hasBookmark;
+}
+
+// ─── Inline ayah end badge (used inside _LineBasedContent lines) ───
+
+class _AyahEndBadge extends StatelessWidget {
+  final int number;
+  final double size;
+  const _AyahEndBadge({required this.number, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 2.w),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: Size(size, size),
+            painter: const _AyahRosettePainter(),
+          ),
+          Text(
+            _toArabicNum(number),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: size * 0.38,
+              height: 1.0,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Surah name header (rendered inside _LineBasedContent) ───
+
+class _SurahNameHeader extends StatelessWidget {
+  final String rawText; // format: "SurahName  •  مكية/مدنية  •  N آية"
+  final double height;
+  final bool isDark;
+
+  const _SurahNameHeader({
+    required this.rawText,
+    required this.height,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = rawText.split('•').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final name = parts.isNotEmpty ? parts[0] : rawText;
+    final meta = parts.length > 1 ? parts.sublist(1).join('  •  ') : '';
+
+    return SizedBox(
+      height: height,
+      child: CustomPaint(
+        painter: _SurahBannerPainter(isDark: isDark),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                name,
+                style: TextStyle(
+                  fontFamily: 'ScheherazadeNew',
+                  fontSize: (height * 0.28).clamp(14.0, 22.0),
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? const Color(0xFFD4B96A) : AppColors.primaryDark,
+                ),
+              ),
+              if (meta.isNotEmpty) ...[
+                SizedBox(height: 1.h),
+                Text(
+                  meta,
+                  style: TextStyle(
+                    fontSize: (height * 0.14).clamp(9.0, 13.0),
+                    color: isDark
+                        ? const Color(0xFFB89A50).withAlpha(210)
+                        : AppColors.primaryDark.withAlpha(180),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Surah banner CustomPainter — decorative Islamic frame ───
+
+class _SurahBannerPainter extends CustomPainter {
+  final bool isDark;
+  const _SurahBannerPainter({required this.isDark});
+
+  static const _gold = Color(0xFFC8A84B);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // ── Background gradient ──
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, w, h),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? [const Color(0xFF1F3E1C), const Color(0xFF183014), const Color(0xFF1F3E1C)]
+              : [const Color(0xFFF8F2DC), const Color(0xFFEDE4C2), const Color(0xFFF8F2DC)],
+        ).createShader(Rect.fromLTWH(0, 0, w, h)),
+    );
+
+    final stroke = Paint()
+      ..color = _gold
+      ..strokeWidth = 0.9
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = true;
+
+    final strokeDim = Paint()
+      ..color = _gold.withAlpha(120)
+      ..strokeWidth = 0.55
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = true;
+
+    // Border line positions
+    final t1 = h * 0.09; // top outer line y
+    final t2 = h * 0.20; // top inner line y
+    final b1 = h * 0.80; // bottom inner line y
+    final b2 = h * 0.91; // bottom outer line y
+
+    // Corner bracket horizontal extent
+    final cxLen = w * 0.055;
+
+    // ── Outer border lines (with gap for corner brackets) ──
+    canvas.drawLine(Offset(cxLen, t1), Offset(w - cxLen, t1), stroke);
+    canvas.drawLine(Offset(cxLen, b2), Offset(w - cxLen, b2), stroke);
+
+    // ── Inner border lines ──
+    canvas.drawLine(Offset(cxLen, t2), Offset(w - cxLen, t2), strokeDim);
+    canvas.drawLine(Offset(cxLen, b1), Offset(w - cxLen, b1), strokeDim);
+
+    // ── Corner L-brackets (top-left, top-right, bottom-left, bottom-right) ──
+    final cyDrop = h * 0.28; // vertical drop of bracket
+
+    // Top-left
+    canvas.drawLine(Offset(0, t1), Offset(cxLen + 1, t1), stroke);
+    canvas.drawLine(Offset(0, t1), Offset(0, t1 + cyDrop), stroke);
+    // Top-right
+    canvas.drawLine(Offset(w, t1), Offset(w - cxLen - 1, t1), stroke);
+    canvas.drawLine(Offset(w, t1), Offset(w, t1 + cyDrop), stroke);
+    // Bottom-left
+    canvas.drawLine(Offset(0, b2), Offset(cxLen + 1, b2), stroke);
+    canvas.drawLine(Offset(0, b2), Offset(0, b2 - cyDrop), stroke);
+    // Bottom-right
+    canvas.drawLine(Offset(w, b2), Offset(w - cxLen - 1, b2), stroke);
+    canvas.drawLine(Offset(w, b2), Offset(w, b2 - cyDrop), stroke);
+
+    // ── Center diamond medallion on outer border lines ──
+    _drawDiamond(canvas, Offset(w / 2, t1), h * 0.09);
+    _drawDiamond(canvas, Offset(w / 2, b2), h * 0.09);
+
+    // ── Small dots between the double lines, at corners ──
+    final dotPaint = Paint()
+      ..color = _gold.withAlpha(170)
+      ..style = PaintingStyle.fill;
+    final dotX = cxLen * 0.45;
+    final gapMidTop = (t1 + t2) / 2;
+    final gapMidBot = (b1 + b2) / 2;
+    canvas.drawCircle(Offset(dotX, gapMidTop), 1.6, dotPaint);
+    canvas.drawCircle(Offset(w - dotX, gapMidTop), 1.6, dotPaint);
+    canvas.drawCircle(Offset(dotX, gapMidBot), 1.6, dotPaint);
+    canvas.drawCircle(Offset(w - dotX, gapMidBot), 1.6, dotPaint);
+  }
+
+  void _drawDiamond(Canvas canvas, Offset center, double halfH) {
+    final halfW = halfH * 0.52;
+    final path = Path()
+      ..moveTo(center.dx, center.dy - halfH)
+      ..lineTo(center.dx + halfW, center.dy)
+      ..lineTo(center.dx, center.dy + halfH)
+      ..lineTo(center.dx - halfW, center.dy)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()..color = _gold.withAlpha(55)..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      path,
+      Paint()..color = _gold..strokeWidth = 0.85..style = PaintingStyle.stroke..isAntiAlias = true,
+    );
+    // Center dot inside diamond
+    canvas.drawCircle(
+      center,
+      halfH * 0.2,
+      Paint()..color = _gold.withAlpha(200)..style = PaintingStyle.fill,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SurahBannerPainter old) => old.isDark != isDark;
 }
 
 // ─── Ayah-based rendering (fallback when only quran_pages.json is available) ───
@@ -606,61 +1077,38 @@ class _SurahHeader extends StatelessWidget {
         .replaceAll('سُورَة', '')
         .trim();
     final typeLabel = info.type == 'meccan' ? 'مكية' : 'مدنية';
+    final h = 54.h;
 
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 6.h),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? [const Color(0xFF1A3A18), const Color(0xFF243222)]
-              : [
-                  AppColors.primary.withAlpha(30),
-                  AppColors.primary.withAlpha(15)
-                ],
-        ),
-        border: const Border(
-          top: BorderSide(color: AppColors.gold, width: 0.8),
-          bottom: BorderSide(color: AppColors.gold, width: 0.8),
-        ),
-      ),
-      padding: EdgeInsets.symmetric(vertical: 6.h, horizontal: 8.w),
-      child: Column(
-        children: [
-          Row(
+    return SizedBox(
+      height: h,
+      child: CustomPaint(
+        painter: _SurahBannerPainter(isDark: isDark),
+        child: Center(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('❁',
-                  style:
-                      TextStyle(color: AppColors.gold, fontSize: 10.sp)),
-              SizedBox(width: 8.w),
               Text(
                 shortName,
                 style: TextStyle(
                   fontFamily: 'ScheherazadeNew',
                   fontSize: 20.sp,
                   fontWeight: FontWeight.w700,
-                  color: isDark
-                      ? AppColors.goldLight
-                      : AppColors.primaryDark,
+                  color: isDark ? const Color(0xFFD4B96A) : AppColors.primaryDark,
                 ),
               ),
-              SizedBox(width: 8.w),
-              Text('❁',
-                  style:
-                      TextStyle(color: AppColors.gold, fontSize: 10.sp)),
+              SizedBox(height: 2.h),
+              Text(
+                '$typeLabel  •  ${_toArabicNum(info.verseCount)} آية',
+                style: TextStyle(
+                  fontSize: 11.sp,
+                  color: isDark
+                      ? const Color(0xFFB89A50).withAlpha(210)
+                      : AppColors.primaryDark.withAlpha(180),
+                ),
+              ),
             ],
           ),
-          SizedBox(height: 2.h),
-          Text(
-            '$typeLabel  •  ${_toArabicNum(info.verseCount)} آية',
-            style: TextStyle(
-              fontSize: 11.sp,
-              color: isDark
-                  ? AppColors.goldLight.withAlpha(180)
-                  : AppColors.primaryDark.withAlpha(180),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -681,7 +1129,7 @@ class _BismillahLine extends StatelessWidget {
         textAlign: TextAlign.center,
         textDirection: TextDirection.rtl,
         style: TextStyle(
-          fontFamily: 'ScheherazadeNew',
+          fontFamily: _quranFont,
           fontSize: 20.sp,
           color: textColor,
           height: 1.9,
@@ -742,7 +1190,7 @@ class _AyahsBlockState extends State<_AyahsBlock> {
       text: TextSpan(
         text: plainText,
         style: TextStyle(
-          fontFamily: 'ScheherazadeNew',
+          fontFamily: _quranFont,
           fontSize: widget.fontSize,
           height: 2.0,
         ),
@@ -827,7 +1275,7 @@ class _AyahsBlockState extends State<_AyahsBlock> {
     }
 
     final baseStyle = TextStyle(
-      fontFamily: 'ScheherazadeNew',
+      fontFamily: _quranFont,
       fontSize: widget.fontSize,
       color: widget.textColor,
     );
@@ -855,40 +1303,25 @@ class _AyahNumberBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 4.w),
-      width: 22.r,
-      height: 22.r,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.gold, width: 0.8),
-      ),
+    final sz = 24.r;
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 4.w),
       child: Stack(
+        alignment: Alignment.center,
         children: [
-          Center(
-            child: Text(
-              _toArabicNum(number),
-              style: TextStyle(
-                color: AppColors.gold,
-                fontSize: 8.sp,
-                height: 1.0,
-                fontWeight: FontWeight.w700,
-              ),
+          CustomPaint(
+            size: Size(sz, sz),
+            painter: _AyahRosettePainter(hasBookmark: hasBookmark),
+          ),
+          Text(
+            _toArabicNum(number),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 8.sp,
+              height: 1.0,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          if (hasBookmark)
-            Positioned(
-              top: 0,
-              right: 0,
-              child: Container(
-                width: 6.r,
-                height: 6.r,
-                decoration: const BoxDecoration(
-                  color: AppColors.gold,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -994,7 +1427,7 @@ class _AyahActionSheetState extends State<_AyahActionSheet> {
               textAlign: TextAlign.center,
               textDirection: TextDirection.rtl,
               style: TextStyle(
-                fontFamily: 'ScheherazadeNew',
+                fontFamily: _quranFont,
                 fontSize: 16.sp,
                 color: textPrimary,
                 height: 1.8,
@@ -1166,6 +1599,313 @@ class _AyahActionSheetState extends State<_AyahActionSheet> {
         .read<MushafCubit>()
         .removeBookmark(widget.ayah.surahId, widget.ayah.ayahNum);
     Navigator.of(context).pop();
+  }
+}
+
+// ─── Mushaf Drawer ───
+
+const _juzNames = [
+  'الجزء الأول', 'الجزء الثاني', 'الجزء الثالث', 'الجزء الرابع',
+  'الجزء الخامس', 'الجزء السادس', 'الجزء السابع', 'الجزء الثامن',
+  'الجزء التاسع', 'الجزء العاشر', 'الجزء الحادي عشر', 'الجزء الثاني عشر',
+  'الجزء الثالث عشر', 'الجزء الرابع عشر', 'الجزء الخامس عشر',
+  'الجزء السادس عشر', 'الجزء السابع عشر', 'الجزء الثامن عشر',
+  'الجزء التاسع عشر', 'الجزء العشرون', 'الجزء الحادي والعشرون',
+  'الجزء الثاني والعشرون', 'الجزء الثالث والعشرون', 'الجزء الرابع والعشرون',
+  'الجزء الخامس والعشرون', 'الجزء السادس والعشرون', 'الجزء السابع والعشرون',
+  'الجزء الثامن والعشرون', 'الجزء التاسع والعشرون', 'الجزء الثلاثون',
+];
+
+class _MushafDrawer extends StatelessWidget {
+  final MushafReady state;
+  final void Function(int page) onGoToPage;
+
+  const _MushafDrawer({required this.state, required this.onGoToPage});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1C1509) : const Color(0xFFFBF6E8);
+    final textSec = isDark ? Colors.white54 : Colors.black45;
+
+    void navigate(int page) {
+      Navigator.of(context).pop();
+      onGoToPage(page);
+    }
+
+    return Drawer(
+      backgroundColor: bg,
+      width: 0.82.sw,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Container(
+              padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 14.h),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primaryDark, AppColors.primary],
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.menu_book_rounded, color: AppColors.goldLight, size: 20.r),
+                  SizedBox(width: 8.w),
+                  Text(
+                    'المصحف الشريف',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'ScheherazadeNew',
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Icon(Icons.close, color: Colors.white.withAlpha(200), size: 20.r),
+                  ),
+                ],
+              ),
+            ),
+            // Tabs
+            Expanded(
+              child: DefaultTabController(
+                length: 3,
+                child: Column(
+                  children: [
+                    TabBar(
+                      labelColor: AppColors.primary,
+                      unselectedLabelColor: textSec,
+                      indicatorColor: AppColors.gold,
+                      indicatorWeight: 2,
+                      labelStyle: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600),
+                      unselectedLabelStyle: TextStyle(fontSize: 12.sp),
+                      tabs: const [
+                        Tab(text: 'معلماتي'),
+                        Tab(text: 'الأجزاء'),
+                        Tab(text: 'السور'),
+                      ],
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          _BookmarksTab(state: state, onNavigate: navigate, isDark: isDark),
+                          _JuzTab(state: state, onNavigate: navigate, isDark: isDark),
+                          _SurahsTab(state: state, onNavigate: navigate, isDark: isDark),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BookmarksTab extends StatelessWidget {
+  final MushafReady state;
+  final void Function(int page) onNavigate;
+  final bool isDark;
+
+  const _BookmarksTab({required this.state, required this.onNavigate, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = state.pageBookmarks.toList()..sort();
+    final textPrimary = isDark ? const Color(0xFFEBD9A6) : const Color(0xFF1A0A00);
+    final textSec = isDark ? Colors.white54 : Colors.black45;
+
+    if (sorted.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.bookmark_border, color: textSec, size: 40.r),
+            SizedBox(height: 12.h),
+            Text(
+              'لا توجد صفحات معلمة بعد\nاضغط على أيقونة العلامة في أعلى الصفحة',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: textSec, fontSize: 13.sp, height: 1.6),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(vertical: 8.h),
+      itemCount: sorted.length,
+      itemBuilder: (context, i) {
+        final page = sorted[i];
+        // Find surah name for this page
+        final cubit = context.read<MushafCubit>();
+        final pageData = cubit.getPageData(page);
+        final surahName = pageData != null && pageData.ayahs.isNotEmpty
+            ? state.surahInfo(pageData.ayahs.first.surahId).arabicName
+                .replaceAll('سُورَةُ', '').replaceAll('سُورَة', '').trim()
+            : '';
+
+        return ListTile(
+          dense: true,
+          onTap: () => onNavigate(page),
+          leading: Icon(Icons.bookmark, color: AppColors.gold, size: 20.r),
+          title: Text(
+            'صفحة ${_toArabicNum(page)}',
+            style: TextStyle(color: textPrimary, fontSize: 14.sp, fontWeight: FontWeight.w600),
+          ),
+          subtitle: surahName.isNotEmpty
+              ? Text(surahName, style: TextStyle(color: textSec, fontSize: 12.sp, fontFamily: 'ScheherazadeNew'))
+              : null,
+          trailing: Icon(Icons.arrow_back_ios, size: 14.r, color: textSec),
+        );
+      },
+    );
+  }
+}
+
+class _JuzTab extends StatelessWidget {
+  final MushafReady state;
+  final void Function(int page) onNavigate;
+  final bool isDark;
+
+  const _JuzTab({required this.state, required this.onNavigate, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final textPrimary = isDark ? const Color(0xFFEBD9A6) : const Color(0xFF1A0A00);
+    final textSec = isDark ? Colors.white54 : Colors.black45;
+    final dividerColor = isDark ? Colors.white12 : Colors.black12;
+
+    return ListView.separated(
+      padding: EdgeInsets.symmetric(vertical: 8.h),
+      itemCount: 30,
+      separatorBuilder: (_, _) => Divider(height: 1, color: dividerColor),
+      itemBuilder: (context, i) {
+        final juz = i + 1;
+        final page = state.juzFirstPages[juz] ?? 1;
+        final isCurrentJuz = (context.read<MushafCubit>().getPageData(state.currentPage)?.juzNumber ?? 1) == juz;
+
+        return ListTile(
+          dense: true,
+          onTap: () => onNavigate(page),
+          leading: Container(
+            width: 32.r,
+            height: 32.r,
+            decoration: BoxDecoration(
+              color: isCurrentJuz ? AppColors.primary : AppColors.primary.withAlpha(20),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                _toArabicNum(juz),
+                style: TextStyle(
+                  color: isCurrentJuz ? Colors.white : AppColors.primary,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          title: Text(
+            _juzNames[i],
+            style: TextStyle(
+              color: isCurrentJuz ? AppColors.primary : textPrimary,
+              fontSize: 13.sp,
+              fontWeight: isCurrentJuz ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+          subtitle: Text(
+            'صفحة ${_toArabicNum(page)}',
+            style: TextStyle(color: textSec, fontSize: 11.sp),
+          ),
+          trailing: isCurrentJuz
+              ? Icon(Icons.play_arrow, color: AppColors.primary, size: 16.r)
+              : Icon(Icons.arrow_back_ios, size: 14.r, color: textSec),
+        );
+      },
+    );
+  }
+}
+
+class _SurahsTab extends StatelessWidget {
+  final MushafReady state;
+  final void Function(int page) onNavigate;
+  final bool isDark;
+
+  const _SurahsTab({required this.state, required this.onNavigate, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    final textPrimary = isDark ? const Color(0xFFEBD9A6) : const Color(0xFF1A0A00);
+    final textSec = isDark ? Colors.white54 : Colors.black45;
+    final dividerColor = isDark ? Colors.white12 : Colors.black12;
+
+    // Surahs on the current page
+    final pageData = context.read<MushafCubit>().getPageData(state.currentPage);
+    final currentSurahIds = pageData?.surahIds ?? [];
+
+    return ListView.separated(
+      padding: EdgeInsets.symmetric(vertical: 8.h),
+      itemCount: state.surahInfos.length,
+      separatorBuilder: (_, _) => Divider(height: 1, color: dividerColor),
+      itemBuilder: (context, i) {
+        final info = state.surahInfos[i];
+        final page = state.surahFirstPages[info.id] ?? 1;
+        final shortName = info.arabicName
+            .replaceAll('سُورَةُ', '').replaceAll('سُورَة', '').trim();
+        final isCurrentSurah = currentSurahIds.contains(info.id);
+        final typeLabel = info.type == 'meccan' ? 'مكية' : 'مدنية';
+
+        return ListTile(
+          dense: true,
+          onTap: () => onNavigate(page),
+          leading: SizedBox(
+            width: 32.r,
+            height: 32.r,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  Icons.star_outline_rounded,
+                  color: isCurrentSurah ? AppColors.primary : AppColors.gold,
+                  size: 32.r,
+                ),
+                Text(
+                  _toArabicNum(info.id),
+                  style: TextStyle(
+                    color: isCurrentSurah ? AppColors.primary : AppColors.gold,
+                    fontSize: 9.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          title: Text(
+            shortName,
+            style: TextStyle(
+              fontFamily: 'ScheherazadeNew',
+              color: isCurrentSurah ? AppColors.primary : textPrimary,
+              fontSize: 15.sp,
+              fontWeight: isCurrentSurah ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+          subtitle: Text(
+            '$typeLabel  •  ${_toArabicNum(info.verseCount)} آية  •  ص ${_toArabicNum(page)}',
+            style: TextStyle(color: textSec, fontSize: 10.sp),
+          ),
+          trailing: isCurrentSurah
+              ? Icon(Icons.play_arrow, color: AppColors.primary, size: 16.r)
+              : Icon(Icons.arrow_back_ios, size: 14.r, color: textSec),
+        );
+      },
+    );
   }
 }
 

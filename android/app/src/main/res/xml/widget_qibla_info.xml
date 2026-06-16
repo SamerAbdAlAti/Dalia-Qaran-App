@@ -6,6 +6,7 @@
     android:targetCellHeight="2"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_qibla"
+    android:previewLayout="@layout/widget_qibla"
     android:resizeMode="none"
     android:widgetCategory="home_screen"
     android:description="@string/widget_qibla_desc" />

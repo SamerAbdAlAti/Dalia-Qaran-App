@@ -36,7 +36,8 @@ class _HomeScaffold extends StatelessWidget {
       body: BlocBuilder<HomeCubit, HomeState>(
         builder: (context, state) {
           if (state is HomeLoading || state is HomeInitial) {
-            return const _LoadingView();
+            return _LoadingView(
+                onPickCity: () => _showCityPicker(context));
           }
           if (state is HomeLocationDisabled) {
             return const _LocationDisabledView();
@@ -51,7 +52,7 @@ class _HomeScaffold extends StatelessWidget {
               onNavigateTo: onNavigateTo,
             );
           }
-          return const _LoadingView();
+          return _LoadingView(onPickCity: () => _showCityPicker(context));
         },
       ),
     );
@@ -61,23 +62,44 @@ class _HomeScaffold extends StatelessWidget {
 // ─── Loading ───
 
 class _LoadingView extends StatelessWidget {
-  const _LoadingView();
+  final VoidCallback onPickCity;
+  const _LoadingView({required this.onPickCity});
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
     return SafeArea(
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(color: AppColors.primary),
-            SizedBox(height: 16.h),
-            Text(
-              'جارٍ تحديد موقعك...',
-              style: TextStyle(
-                  fontSize: 14.sp, color: context.colors.textSecondary),
-            ),
-          ],
+        child: Padding(
+          padding: EdgeInsets.all(32.r),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: AppColors.primary),
+              SizedBox(height: 16.h),
+              Text(
+                'جارٍ تحديد موقعك...',
+                style:
+                    TextStyle(fontSize: 14.sp, color: colors.textSecondary),
+              ),
+              SizedBox(height: 28.h),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onPickCity,
+                  icon: const Icon(Icons.location_city_outlined),
+                  label: const Text('تحديد المدينة يدوياً'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: EdgeInsets.symmetric(vertical: 13.h),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.r)),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -331,15 +353,6 @@ class _GreenHeader extends StatelessWidget {
                 ),
               ),
               SizedBox(height: 6.h),
-              Text(
-                'السلام عليكم',
-                style: TextStyle(
-                  fontSize: 26.sp,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
-                ),
-              ),
               if (prayerTimes.cityName.isNotEmpty) ...[
                 SizedBox(height: 4.h),
                 Row(
@@ -670,6 +683,14 @@ class _VerseOfDayCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              Text(
+                'آية اليوم',
+                style: TextStyle(
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                  color: colors.textSecondary,
+                ),
+              ),
               Container(
                 padding:
                     EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
@@ -681,14 +702,6 @@ class _VerseOfDayCard extends StatelessWidget {
                   'سورة $surahName — ${toArabicNumerals(ayahId.toString())}',
                   style: TextStyle(
                       fontSize: 11.sp, color: AppColors.gold),
-                ),
-              ),
-              Text(
-                'آية اليوم',
-                style: TextStyle(
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w600,
-                  color: colors.textSecondary,
                 ),
               ),
             ],
@@ -1098,6 +1111,15 @@ const _kCities = [
   _City('الدار البيضاء', 'المغرب', 33.5731, -7.5898),
   _City('غزة', 'فلسطين', 31.5017, 34.4668),
   _City('القدس', 'فلسطين', 31.7683, 35.2137),
+  _City('رام الله', 'فلسطين', 31.9038, 35.2034),
+  _City('نابلس', 'فلسطين', 32.2211, 35.2544),
+  _City('الخليل', 'فلسطين', 31.5293, 35.0998),
+  _City('جنين', 'فلسطين', 32.4611, 35.2956),
+  _City('طولكرم', 'فلسطين', 32.3100, 35.0282),
+  _City('أريحا', 'فلسطين', 31.8611, 35.4610),
+  _City('بيت لحم', 'فلسطين', 31.7054, 35.2024),
+  _City('الناصرة', 'فلسطين', 32.6996, 35.3035),
+  _City('حيفا', 'فلسطين', 32.7940, 34.9896),
   _City('إسطنبول', 'تركيا', 41.0082, 28.9784),
   _City('لندن', 'المملكة المتحدة', 51.5074, -0.1278),
   _City('باريس', 'فرنسا', 48.8566, 2.3522),

@@ -43,6 +43,38 @@ class MainActivity : FlutterActivity() {
                         result.success(true)
                     }
 
+                    "clearNotificationCache" -> {
+                        // flutter_local_notifications stores scheduled notification JSON
+                        // in a named SharedPreferences file called "scheduled_notifications".
+                        // Clearing it fixes "Missing type parameter" after plugin upgrades.
+                        getSharedPreferences("scheduled_notifications", MODE_PRIVATE)
+                            .edit().clear().apply()
+                        result.success(true)
+                    }
+
+                    "openMiuiAutostart" -> {
+                        // MIUI Autostart settings — هذا الـ intent يفتح إعدادات التشغيل التلقائي في MIUI
+                        try {
+                            val intent = Intent()
+                            intent.setClassName(
+                                "com.miui.securitycenter",
+                                "com.miui.permcenter.autostart.AutoStartManagementActivity"
+                            )
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (_: Exception) {
+                            // Not MIUI — open general app settings instead
+                            try {
+                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                intent.data = Uri.parse("package:$packageName")
+                                startActivity(intent)
+                                result.success(false)
+                            } catch (e2: Exception) {
+                                result.error("OPEN_FAILED", e2.message, null)
+                            }
+                        }
+                    }
+
                     "getFileProviderUri" -> {
                         val filePath = call.argument<String>("filePath")
                         if (filePath == null) {

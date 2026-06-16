@@ -100,22 +100,28 @@ class MushafPageEntity {
 class MushafInitData {
   final List<MushafSurahInfo> surahInfos;
   final Map<int, int> surahFirstPages;
+  final Map<int, int> juzFirstPages;
   final int lastReadPage;
   final String lastReadSurahName;
   final int lastReadJuz;
   final List<MushafBookmark> bookmarks;
   final Set<int> readPages;
+  final Set<int> pageBookmarks;
   final bool tajweedMode;
+  final int fontWeight;
 
   const MushafInitData({
     required this.surahInfos,
     required this.surahFirstPages,
+    this.juzFirstPages = const {},
     this.lastReadPage = 1,
     this.lastReadSurahName = '',
     this.lastReadJuz = 1,
     this.bookmarks = const [],
     this.readPages = const <int>{},
+    this.pageBookmarks = const <int>{},
     this.tajweedMode = false,
+    this.fontWeight = 400,
   });
 }
 

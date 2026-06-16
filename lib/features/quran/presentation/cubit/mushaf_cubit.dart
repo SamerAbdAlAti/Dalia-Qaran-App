@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/entities/mushaf_entities.dart';
@@ -15,32 +16,43 @@ class MushafReady extends MushafState {
   final int currentPage;
   final List<MushafSurahInfo> surahInfos;
   final Map<int, int> surahFirstPages;
+  final Map<int, int> juzFirstPages;
   final List<MushafBookmark> bookmarks;
   final Set<int> readPages;
+  final Set<int> pageBookmarks;
   final bool tajweedMode;
+  final int fontWeight;
 
   MushafReady({
     required this.currentPage,
     required this.surahInfos,
     required this.surahFirstPages,
+    this.juzFirstPages = const {},
     this.bookmarks = const [],
     this.readPages = const {},
+    this.pageBookmarks = const {},
     this.tajweedMode = false,
+    this.fontWeight = 400,
   });
 
   MushafReady copyWith({
     int? currentPage,
     List<MushafBookmark>? bookmarks,
     Set<int>? readPages,
+    Set<int>? pageBookmarks,
     bool? tajweedMode,
+    int? fontWeight,
   }) =>
       MushafReady(
         currentPage: currentPage ?? this.currentPage,
         surahInfos: surahInfos,
         surahFirstPages: surahFirstPages,
+        juzFirstPages: juzFirstPages,
         bookmarks: bookmarks ?? this.bookmarks,
         readPages: readPages ?? this.readPages,
+        pageBookmarks: pageBookmarks ?? this.pageBookmarks,
         tajweedMode: tajweedMode ?? this.tajweedMode,
+        fontWeight: fontWeight ?? this.fontWeight,
       );
 
   MushafSurahInfo surahInfo(int surahId) => surahInfos[surahId - 1];
@@ -72,6 +84,7 @@ class MushafCubit extends Cubit<MushafState> {
   final SharedPreferences _prefs;
 
   static const _keyTajweedMode = 'mushaf_tajweed_mode';
+  static const _keyFontWeight = 'mushaf_font_weight';
 
   MushafCubit(
     this._initMushaf,
@@ -91,9 +104,12 @@ class MushafCubit extends Cubit<MushafState> {
         currentPage: startPage ?? data.lastReadPage,
         surahInfos: data.surahInfos,
         surahFirstPages: data.surahFirstPages,
+        juzFirstPages: data.juzFirstPages,
         bookmarks: data.bookmarks,
         readPages: data.readPages,
+        pageBookmarks: data.pageBookmarks,
         tajweedMode: data.tajweedMode,
+        fontWeight: data.fontWeight,
       )),
     );
   }
@@ -125,6 +141,26 @@ class MushafCubit extends Cubit<MushafState> {
     final newMode = !s.tajweedMode;
     _prefs.setBool(_keyTajweedMode, newMode);
     emit(s.copyWith(tajweedMode: newMode));
+  }
+
+  void setFontWeight(int weight) {
+    if (state is! MushafReady) return;
+    final s = state as MushafReady;
+    _prefs.setInt(_keyFontWeight, weight);
+    emit(s.copyWith(fontWeight: weight));
+  }
+
+  void togglePageBookmark(int page) {
+    if (state is! MushafReady) return;
+    final s = state as MushafReady;
+    final updated = Set<int>.from(s.pageBookmarks);
+    if (updated.contains(page)) {
+      updated.remove(page);
+    } else {
+      updated.add(page);
+    }
+    _prefs.setString('mushaf_page_bookmarks', jsonEncode(updated.toList()));
+    emit(s.copyWith(pageBookmarks: updated));
   }
 
   // ─── Bookmarks ───

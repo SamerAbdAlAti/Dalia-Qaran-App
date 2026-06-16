@@ -25,18 +25,15 @@ Future<void> main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-
   // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
   //   statusBarColor: Colors.transparent,
   //   statusBarIconBrightness: Brightness.dark,
   //   systemNavigationBarColor: Colors.white,
   //   systemNavigationBarIconBrightness: Brightness.dark,
   // ));
-
   await initObjectboxStore();
   await initDependencies();
   await NotificationService.init();
-  await NotificationService.requestPermission();
   await BackgroundService.init();
   await BackgroundService.scheduleDailyReschedule();
   await WidgetService.init();

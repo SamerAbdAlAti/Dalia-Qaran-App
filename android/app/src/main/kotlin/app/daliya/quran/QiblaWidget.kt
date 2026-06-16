@@ -3,6 +3,7 @@ package app.daliya.quran
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetPlugin
 
@@ -27,11 +28,13 @@ class QiblaWidget : AppWidgetProvider() {
             val data = HomeWidgetPlugin.getData(context)
             val views = RemoteViews(context.packageName, R.layout.widget_qibla)
 
-            val angle = data.getInt("qibla_angle", 0)
-            val city  = data.getString("qibla_city", "") ?: ""
-
-            views.setTextViewText(R.id.qibla_degrees, "${angle}°")
-            views.setTextViewText(R.id.qibla_city, city)
+            val imagePath = data.getString("qibla_image", null)
+            if (imagePath != null) {
+                val bitmap = BitmapFactory.decodeFile(imagePath)
+                if (bitmap != null) {
+                    views.setImageViewBitmap(R.id.widget_image, bitmap)
+                }
+            }
 
             val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             if (intent != null) {
@@ -39,7 +42,7 @@ class QiblaWidget : AppWidgetProvider() {
                     context, 2, intent,
                     android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
                 )
-                views.setOnClickPendingIntent(R.id.qibla_angle, pendingIntent)
+                views.setOnClickPendingIntent(R.id.widget_image, pendingIntent)
             }
 
             appWidgetManager.updateAppWidget(widgetId, views)

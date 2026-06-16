@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/prayer_timer_service.dart';
 import '../../../../core/services/reminders_service.dart';
 import '../../../../core/services/widget_service.dart';
 import '../../domain/entities/prayer_times_entity.dart';
@@ -76,6 +77,10 @@ class HomeCubit extends Cubit<HomeState> {
         _scheduleNotifications(times);
         _scheduleReminders(times);
         _updateWidgets(times);
+        Future.delayed(
+          const Duration(seconds: 1),
+          NotificationService.requestPermission,
+        );
       },
     );
   }
@@ -144,6 +149,20 @@ class HomeCubit extends Cubit<HomeState> {
         fajrTime: times.fajr,
         ishaTime: times.isha,
       );
+      RemindersService.scheduleDhikrAll(
+        prefs: {
+          AppConstants.keyDhikrIstighfar:         prefs.getBool(AppConstants.keyDhikrIstighfar) ?? false,
+          AppConstants.keyDhikrIstighfarInterval: prefs.getInt(AppConstants.keyDhikrIstighfarInterval) ?? 60,
+          AppConstants.keyDhikrIstighfarSound:    prefs.getString(AppConstants.keyDhikrIstighfarSound) ?? 'dhikr_istighfar',
+          AppConstants.keyDhikrSalawat:           prefs.getBool(AppConstants.keyDhikrSalawat) ?? false,
+          AppConstants.keyDhikrSalawatInterval:   prefs.getInt(AppConstants.keyDhikrSalawatInterval) ?? 60,
+          AppConstants.keyDhikrSalawatSound:      prefs.getString(AppConstants.keyDhikrSalawatSound) ?? 'dhikr_salawat',
+          AppConstants.keyDhikrTasbih:            prefs.getBool(AppConstants.keyDhikrTasbih) ?? false,
+          AppConstants.keyDhikrTasbihInterval:    prefs.getInt(AppConstants.keyDhikrTasbihInterval) ?? 60,
+          AppConstants.keyDhikrTasbihSound:       prefs.getString(AppConstants.keyDhikrTasbihSound) ?? 'dhikr_tasbih',
+          AppConstants.keyDhikrPostPrayer:        prefs.getBool(AppConstants.keyDhikrPostPrayer) ?? false,
+        },
+      );
     } catch (_) {}
   }
 
@@ -162,10 +181,12 @@ class HomeCubit extends Cubit<HomeState> {
           .toList()
         ..sort((a, b) => a.value.compareTo(b.value));
       final next = upcoming.isNotEmpty ? upcoming.first : prayerMap.entries.last;
+      final minutesLeft = next.value.difference(now).inMinutes.clamp(0, 9999);
       WidgetService.updatePrayerWidget(
         prayerTimes: prayerMap,
         nextPrayer: next.key,
         nextPrayerTime: next.value,
+        minutesLeft: minutesLeft,
       );
     } catch (_) {}
   }
@@ -181,22 +202,35 @@ class HomeCubit extends Cubit<HomeState> {
         (r) => r.minutes == reminderMin,
         orElse: () => ReminderOffset.none,
       );
+      final prayerMap = {
+        'الفجر': times.fajr,
+        'الظهر': times.dhuhr,
+        'العصر': times.asr,
+        'المغرب': times.maghrib,
+        'العشاء': times.isha,
+      };
+      final enabledMap = {
+        'الفجر': prefs.getBool(AppConstants.keyNotifyFajr) ?? true,
+        'الظهر': prefs.getBool(AppConstants.keyNotifyDhuhr) ?? true,
+        'العصر': prefs.getBool(AppConstants.keyNotifyAsr) ?? true,
+        'المغرب': prefs.getBool(AppConstants.keyNotifyMaghrib) ?? true,
+        'العشاء': prefs.getBool(AppConstants.keyNotifyIsha) ?? true,
+      };
 
+      // Dart timers — يعمل عندما يكون محرك Flutter حياً (تطبيق مفتوح أو في الخلفية)
+      PrayerTimerService.scheduleToday(
+        prayerTimes: prayerMap,
+        enabledPrayers: enabledMap,
+        soundId: soundId,
+        vibrate: vibrate,
+        reminderMinutes: reminderMin,
+        customSoundUri: customSoundUri,
+      );
+
+      // AlarmManager — backup لعند إغلاق التطبيق كلياً (يحتاج Autostart على MIUI)
       NotificationService.scheduleAllPrayers(
-        prayerTimes: {
-          'الفجر': times.fajr,
-          'الظهر': times.dhuhr,
-          'العصر': times.asr,
-          'المغرب': times.maghrib,
-          'العشاء': times.isha,
-        },
-        enabledPrayers: {
-          'الفجر': prefs.getBool(AppConstants.keyNotifyFajr) ?? true,
-          'الظهر': prefs.getBool(AppConstants.keyNotifyDhuhr) ?? true,
-          'العصر': prefs.getBool(AppConstants.keyNotifyAsr) ?? true,
-          'المغرب': prefs.getBool(AppConstants.keyNotifyMaghrib) ?? true,
-          'العشاء': prefs.getBool(AppConstants.keyNotifyIsha) ?? true,
-        },
+        prayerTimes: prayerMap,
+        enabledPrayers: enabledMap,
         soundId: soundId,
         offset: offset,
         vibrate: vibrate,

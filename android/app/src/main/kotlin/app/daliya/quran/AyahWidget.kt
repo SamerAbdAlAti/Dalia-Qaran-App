@@ -3,6 +3,7 @@ package app.daliya.quran
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
+import android.graphics.BitmapFactory
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetPlugin
 
@@ -27,11 +28,13 @@ class AyahWidget : AppWidgetProvider() {
             val data = HomeWidgetPlugin.getData(context)
             val views = RemoteViews(context.packageName, R.layout.widget_ayah)
 
-            val text = data.getString("ayah_text", "﴿ وَقُل رَّبِّ زِدْنِي عِلْمًا ﴾") ?: "﴿ وَقُل رَّبِّ زِدْنِي عِلْمًا ﴾"
-            val ref  = data.getString("ayah_ref", "") ?: ""
-
-            views.setTextViewText(R.id.ayah_text, text)
-            views.setTextViewText(R.id.ayah_ref, ref)
+            val imagePath = data.getString("ayah_image", null)
+            if (imagePath != null) {
+                val bitmap = BitmapFactory.decodeFile(imagePath)
+                if (bitmap != null) {
+                    views.setImageViewBitmap(R.id.widget_image, bitmap)
+                }
+            }
 
             val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
             if (intent != null) {
@@ -39,7 +42,7 @@ class AyahWidget : AppWidgetProvider() {
                     context, 1, intent,
                     android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
                 )
-                views.setOnClickPendingIntent(R.id.ayah_text, pendingIntent)
+                views.setOnClickPendingIntent(R.id.widget_image, pendingIntent)
             }
 
             appWidgetManager.updateAppWidget(widgetId, views)

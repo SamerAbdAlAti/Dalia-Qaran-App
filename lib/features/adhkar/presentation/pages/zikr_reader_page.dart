@@ -146,7 +146,7 @@ class _ActiveBody extends StatelessWidget {
         // ── Content ──
         Expanded(
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(16.w, 20.h, 16.w, 8.h),
+            padding: EdgeInsets.fromLTRB(16.w, 20.h, 16.w, 16.h),
             child: Column(
               children: [
                 // Zikr text card
@@ -155,14 +155,15 @@ class _ActiveBody extends StatelessWidget {
 
                 // Counter
                 _CounterWidget(state: state, theme: theme),
-                SizedBox(height: 20.h),
-
-                // Tap button
-                _TapButton(state: state, theme: theme),
-                SizedBox(height: 8.h),
               ],
             ),
           ),
+        ),
+
+        // ── Fixed tap button ──
+        Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
+          child: _TapButton(state: state, theme: theme),
         ),
 
         // ── Navigation ──

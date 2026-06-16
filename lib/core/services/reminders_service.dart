@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../constants/app_constants.dart';
@@ -19,6 +20,39 @@ class ReminderDef {
     required this.channelNameAr,
   });
 }
+
+// ─── Dhikr reminder definitions ───
+
+const _dhikrReminders = [
+  ReminderDef(
+    id: AppConstants.notifDhikrIstighfar,
+    titleAr: '💚 وقت الاستغفار',
+    bodyAr: 'أستغفر الله العظيم الذي لا إله إلا هو الحي القيوم وأتوب إليه',
+    channelId: 'dhikr_istighfar',
+    channelNameAr: 'تذكير الاستغفار',
+  ),
+  ReminderDef(
+    id: AppConstants.notifDhikrSalawat,
+    titleAr: '💛 الصلاة على النبي ﷺ',
+    bodyAr: 'اللهم صلِّ وسلِّم وبارك على نبينا محمد ﷺ',
+    channelId: 'dhikr_salawat',
+    channelNameAr: 'تذكير الصلاة على النبي',
+  ),
+  ReminderDef(
+    id: AppConstants.notifDhikrTasbih,
+    titleAr: '🤍 وقت التسبيح',
+    bodyAr: 'سبحان الله وبحمده، سبحان الله العظيم',
+    channelId: 'dhikr_tasbih',
+    channelNameAr: 'تذكير التسبيح',
+  ),
+  ReminderDef(
+    id: AppConstants.notifDhikrPostPrayer,
+    titleAr: '🕌 أذكار ما بعد الصلاة',
+    bodyAr: 'لا تنسَ: سبحان الله ٣٣، الحمد لله ٣٣، الله أكبر ٣٣',
+    channelId: 'dhikr_post_prayer',
+    channelNameAr: 'أذكار بعد الصلاة',
+  ),
+];
 
 const _reminders = [
   ReminderDef(
@@ -77,6 +111,14 @@ const _reminders = [
 class RemindersService {
   static final _plugin = FlutterLocalNotificationsPlugin();
 
+  static const _platformChannel = MethodChannel('app.daliya.quran/platform');
+
+  static Future<void> _clearNotificationCache() async {
+    try {
+      await _platformChannel.invokeMethod('clearNotificationCache');
+    } catch (_) {}
+  }
+
   static Future<void> _ensureChannel(ReminderDef r) async {
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
@@ -96,6 +138,14 @@ class RemindersService {
         priority: Priority.high,
         enableVibration: true,
         playSound: true,
+        color: const Color(0xFF1B5E20),
+        icon: '@mipmap/ic_launcher',
+        subText: 'داليا',
+        styleInformation: BigTextStyleInformation(
+          r.bodyAr,
+          contentTitle: r.titleAr,
+          summaryText: 'داليا • تذكيرات',
+        ),
       );
 
   // ─── Schedule daily reminder at fixed time ───
@@ -110,17 +160,33 @@ class RemindersService {
     if (scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
-    await _plugin.zonedSchedule(
-      reminder.id,
-      reminder.titleAr,
-      reminder.bodyAr,
-      scheduled,
-      NotificationDetails(android: _androidDetails(reminder)),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time,
-    );
+    final details = NotificationDetails(android: _androidDetails(reminder));
+    try {
+      await _plugin.zonedSchedule(
+        reminder.id,
+        reminder.titleAr,
+        reminder.bodyAr,
+        scheduled,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    } catch (_) {
+      await _clearNotificationCache();
+      await _plugin.zonedSchedule(
+        reminder.id,
+        reminder.titleAr,
+        reminder.bodyAr,
+        scheduled,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    }
   }
 
   // ─── Schedule at computed DateTime (qiyam, fajr sunnah) ───
@@ -130,27 +196,209 @@ class RemindersService {
   }) async {
     if (at.isBefore(DateTime.now())) return;
     await _ensureChannel(reminder);
-    await _plugin.zonedSchedule(
-      reminder.id,
-      reminder.titleAr,
-      reminder.bodyAr,
-      tz.TZDateTime.from(at, tz.local),
-      NotificationDetails(android: _androidDetails(reminder)),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
+    final details = NotificationDetails(android: _androidDetails(reminder));
+    final scheduledTime = tz.TZDateTime.from(at, tz.local);
+    try {
+      await _plugin.zonedSchedule(
+        reminder.id,
+        reminder.titleAr,
+        reminder.bodyAr,
+        scheduledTime,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {
+      await _clearNotificationCache();
+      await _plugin.zonedSchedule(
+        reminder.id,
+        reminder.titleAr,
+        reminder.bodyAr,
+        scheduledTime,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    }
   }
 
   static Future<void> cancel(int id) async {
-    await _plugin.cancel(id);
+    try {
+      await _plugin.cancel(id);
+    } catch (_) {
+      await _clearNotificationCache();
+    }
   }
 
   static Future<void> cancelAll() async {
     for (final r in _reminders) {
-      await _plugin.cancel(r.id);
+      try {
+        await _plugin.cancel(r.id);
+      } catch (_) {
+        await _clearNotificationCache();
+        break;
+      }
     }
   }
+
+  // ─── Dhikr interval scheduling ───
+
+  static Future<void> _ensureDhikrChannel(String channelId, String channelName, String soundId) async {
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    AndroidNotificationSound? sound;
+    if (soundId != 'default' && soundId.isNotEmpty) {
+      sound = RawResourceAndroidNotificationSound(soundId);
+    }
+    await android?.createNotificationChannel(AndroidNotificationChannel(
+      '${channelId}_$soundId',
+      channelName,
+      importance: Importance.high,
+      playSound: true,
+      sound: sound,
+    ));
+  }
+
+  static AndroidNotificationDetails _dhikrAndroidDetails(
+      ReminderDef r, String soundId) {
+    AndroidNotificationSound? sound;
+    if (soundId != 'default' && soundId.isNotEmpty) {
+      sound = RawResourceAndroidNotificationSound(soundId);
+    }
+    return AndroidNotificationDetails(
+      '${r.channelId}_$soundId',
+      r.channelNameAr,
+      importance: Importance.high,
+      priority: Priority.high,
+      enableVibration: true,
+      playSound: true,
+      sound: sound,
+      color: const Color(0xFF1B5E20),
+      icon: '@drawable/ic_notification',
+      subText: 'داليا',
+      ticker: r.titleAr,
+      styleInformation: BigTextStyleInformation(
+        r.bodyAr,
+        contentTitle: r.titleAr,
+        summaryText: 'داليا • تذكيرات الذكر',
+        htmlFormatContent: false,
+        htmlFormatContentTitle: false,
+      ),
+    );
+  }
+
+  // intervalMinutes: 30/60/120/180/360 = interval; 1440 = once daily at 9 AM
+  // Window: 7:00 AM – 9:30 PM (لا نزعج المستخدم بعد ذلك)
+  static Future<void> _scheduleDhikrInterval({
+    required ReminderDef reminder,
+    required int intervalMinutes,
+    required String soundId,
+    required int idBase,
+  }) async {
+    await _ensureDhikrChannel(reminder.channelId, reminder.channelNameAr, soundId);
+    final details = NotificationDetails(android: _dhikrAndroidDetails(reminder, soundId));
+
+    const startMin = 7 * 60;   // 7:00 AM
+    const endMin   = 21 * 60 + 30; // 9:30 PM
+
+    final List<int> slots = intervalMinutes >= 1440
+        ? [9 * 60] // مرة يومياً: 9 صباحاً
+        : [
+            for (int m = startMin; m <= endMin; m += intervalMinutes) m,
+          ];
+
+    final now = tz.TZDateTime.now(tz.local);
+
+    for (int i = 0; i < slots.length && i < AppConstants.notifDhikrSlotCount; i++) {
+      final hour   = slots[i] ~/ 60;
+      final minute = slots[i] % 60;
+      var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+      if (scheduled.isBefore(now)) {
+        scheduled = scheduled.add(const Duration(days: 1));
+      }
+      try {
+        await _plugin.zonedSchedule(
+          idBase + i,
+          reminder.titleAr,
+          reminder.bodyAr,
+          scheduled,
+          details,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.time,
+        );
+      } catch (_) {
+        await _clearNotificationCache();
+      }
+    }
+  }
+
+  static Future<void> _cancelDhikrSlots(int idBase) async {
+    for (int i = 0; i < AppConstants.notifDhikrSlotCount; i++) {
+      try { await _plugin.cancel(idBase + i); } catch (_) {}
+    }
+  }
+
+  static Future<void> scheduleDhikrAll({
+    required Map<String, dynamic> prefs,
+  }) async {
+    // ─── clear corrupted cache first (prevents "Missing type parameter" crash) ───
+    await _clearNotificationCache();
+
+    // ─── cancel legacy single-shot IDs (migration) ───
+    for (final id in [
+      AppConstants.notifDhikrIstighfar,
+      AppConstants.notifDhikrSalawat,
+      AppConstants.notifDhikrTasbih,
+      AppConstants.notifDhikrIstighfar + 100,
+      AppConstants.notifDhikrSalawat + 100,
+      AppConstants.notifDhikrTasbih + 100,
+      AppConstants.notifDhikrPostPrayer,
+    ]) {
+      try { await _plugin.cancel(id); } catch (_) {}
+    }
+
+    // ─── استغفار ───
+    await _cancelDhikrSlots(AppConstants.notifDhikrIstighfarBase);
+    if (prefs[AppConstants.keyDhikrIstighfar] == true) {
+      final interval = (prefs[AppConstants.keyDhikrIstighfarInterval] as int?) ?? 60;
+      final sound = (prefs[AppConstants.keyDhikrIstighfarSound] as String?) ?? 'dhikr_istighfar';
+      final r = _dhikrReminders.firstWhere((d) => d.id == AppConstants.notifDhikrIstighfar);
+      await _scheduleDhikrInterval(
+        reminder: r, intervalMinutes: interval, soundId: sound,
+        idBase: AppConstants.notifDhikrIstighfarBase,
+      );
+    }
+
+    // ─── صلاة على النبي ﷺ ───
+    await _cancelDhikrSlots(AppConstants.notifDhikrSalawatBase);
+    if (prefs[AppConstants.keyDhikrSalawat] == true) {
+      final interval = (prefs[AppConstants.keyDhikrSalawatInterval] as int?) ?? 60;
+      final sound = (prefs[AppConstants.keyDhikrSalawatSound] as String?) ?? 'dhikr_salawat';
+      final r = _dhikrReminders.firstWhere((d) => d.id == AppConstants.notifDhikrSalawat);
+      await _scheduleDhikrInterval(
+        reminder: r, intervalMinutes: interval, soundId: sound,
+        idBase: AppConstants.notifDhikrSalawatBase,
+      );
+    }
+
+    // ─── تسبيح ───
+    await _cancelDhikrSlots(AppConstants.notifDhikrTasbihBase);
+    if (prefs[AppConstants.keyDhikrTasbih] == true) {
+      final interval = (prefs[AppConstants.keyDhikrTasbihInterval] as int?) ?? 60;
+      final sound = (prefs[AppConstants.keyDhikrTasbihSound] as String?) ?? 'dhikr_tasbih';
+      final r = _dhikrReminders.firstWhere((d) => d.id == AppConstants.notifDhikrTasbih);
+      await _scheduleDhikrInterval(
+        reminder: r, intervalMinutes: interval, soundId: sound,
+        idBase: AppConstants.notifDhikrTasbihBase,
+      );
+    }
+  }
+
+  static List<ReminderDef> get dhikrDefs => _dhikrReminders;
 
   // ─── Public accessor for reminder definitions ───
   static List<ReminderDef> get all => _reminders;

@@ -54,6 +54,18 @@ class AppConstants {
   static const int notifQuranReading = 25;
   static const int notifSalahAnnabi = 26;
 
+  // Dhikr Audio Reminder IDs — legacy single IDs (kept for cancel-on-migrate)
+  static const int notifDhikrIstighfar = 30;
+  static const int notifDhikrSalawat = 31;
+  static const int notifDhikrTasbih = 32;
+  static const int notifDhikrPostPrayer = 33;
+
+  // Dhikr interval slot ranges (30 slots each → max "every 30 min" = 30 firings)
+  static const int notifDhikrIstighfarBase = 200; // 200-229
+  static const int notifDhikrSalawatBase   = 230; // 230-259
+  static const int notifDhikrTasbihBase    = 260; // 260-289
+  static const int notifDhikrSlotCount     = 30;
+
   // Reminder SharedPreferences keys
   static const String keyReminderAdhkarMorning = 'reminder_adhkar_morning';
   static const String keyReminderAdhkarMorningTime = 'reminder_adhkar_morning_time';
@@ -68,4 +80,16 @@ class AppConstants {
   static const String keyReminderQuranTime = 'reminder_quran_time';
   static const String keyReminderSalahAnnabi = 'reminder_salah_annabi';
   static const String keyReminderSalahAnnabiTime = 'reminder_salah_annabi_time';
+
+  // Dhikr Audio Reminder keys
+  static const String keyDhikrIstighfar         = 'dhikr_istighfar';
+  static const String keyDhikrIstighfarInterval  = 'dhikr_istighfar_interval'; // int minutes
+  static const String keyDhikrIstighfarSound     = 'dhikr_istighfar_sound';
+  static const String keyDhikrSalawat            = 'dhikr_salawat';
+  static const String keyDhikrSalawatInterval    = 'dhikr_salawat_interval';
+  static const String keyDhikrSalawatSound       = 'dhikr_salawat_sound';
+  static const String keyDhikrTasbih             = 'dhikr_tasbih';
+  static const String keyDhikrTasbihInterval     = 'dhikr_tasbih_interval';
+  static const String keyDhikrTasbihSound        = 'dhikr_tasbih_sound';
+  static const String keyDhikrPostPrayer         = 'dhikr_post_prayer';
 }

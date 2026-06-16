@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:path_provider/path_provider.dart';
@@ -32,31 +33,31 @@ const List<PrayerSound> kPrayerSounds = [
     id: 'azan_makkah',
     nameAr: 'أذان مكة المكرمة',
     rawFileName: 'azan_makkah',
-    assetPath: 'assets/sounds/azan_makkah.mp3',
+    assetPath: 'assets/sounds/azan/azan_makkah.mp3',
   ),
   PrayerSound(
     id: 'azan_madinah',
     nameAr: 'أذان المدينة المنورة',
     rawFileName: 'azan_madinah',
-    assetPath: 'assets/sounds/azan_madinah.mp3',
+    assetPath: 'assets/sounds/azan/azan_madinah.mp3',
   ),
   PrayerSound(
     id: 'azan_egypt',
     nameAr: 'أذان مصري',
     rawFileName: 'azan_egypt',
-    assetPath: 'assets/sounds/azan_egypt.mp3',
+    assetPath: 'assets/sounds/azan/azan_egypt.mp3',
   ),
   PrayerSound(
     id: 'azan_mishary',
     nameAr: 'مشاري العفاسي',
     rawFileName: 'azan_mishary',
-    assetPath: 'assets/sounds/azan_mishary.mp3',
+    assetPath: 'assets/sounds/azan/azan_mishary.mp3',
   ),
   PrayerSound(
     id: 'beep_soft',
     nameAr: 'تنبيه هادئ',
     rawFileName: 'beep_soft',
-    assetPath: 'assets/sounds/beep_soft.mp3',
+    assetPath: 'assets/sounds/azkar/beep_soft.mp3',
   ),
   // مخصص — يُضاف ديناميكياً في الواجهة
   PrayerSound(id: 'custom', nameAr: 'نغمة مخصصة', isCustom: true),
@@ -208,6 +209,29 @@ class NotificationService {
 
   // ─── Schedule single prayer ───
 
+  // ─── Prayer-specific Islamic messages ───
+
+  static String _prayerIcon(String name) => switch (name) {
+    'الفجر'  => '🌅',
+    'الظهر'  => '☀️',
+    'العصر'  => '🌤',
+    'المغرب' => '🌆',
+    'العشاء' => '🌙',
+    _         => '🕌',
+  };
+
+  static String _prayerBody(String name) => switch (name) {
+    'الفجر'  => 'الصلاةُ خيرٌ من النوم — قم وتطهَّر وصلِّ لله',
+    'الظهر'  => 'توقَّف وتطهَّر — فريضة الظهر تنتظرك',
+    'العصر'  => 'الصلاةُ الوسطى — احرص عليها يحفظك الله',
+    'المغرب' => 'بادر إلى المغرب — وقتها قصير فلا تؤخّر',
+    'العشاء' => 'اختم يومك بالعشاء — وضع اليد في يد الله',
+    _         => 'حان وقت الصلاة',
+  };
+
+  static String _reminderBody(String name, int min) =>
+    'استعدّ لصلاة $name — تبقّى $min ${min == 5 ? 'دقائق' : 'دقيقة'}';
+
   static Future<void> schedulePrayer({
     required int id,
     required String prayerName,
@@ -221,45 +245,73 @@ class NotificationService {
     if (notifyAt.isBefore(DateTime.now())) return;
 
     final channelId = _channelIdFor(soundId, customSoundUri);
+    final sound = await _buildSound(soundId, customSoundUri);
 
-    AndroidNotificationSound? sound;
-    if (soundId == 'custom' && customSoundUri != null) {
-      sound = UriAndroidNotificationSound(customSoundUri);
-    } else if (soundId != 'default') {
-      final match = kPrayerSounds.where((s) => s.id == soundId).firstOrNull;
-      if (match != null && match.rawFileName.isNotEmpty) {
-        sound = RawResourceAndroidNotificationSound(match.rawFileName);
-      }
-    }
+    final isReminder = offset != ReminderOffset.none;
+    final icon = _prayerIcon(prayerName);
+    final title = isReminder
+        ? '$icon $prayerName بعد ${offset.minutes} دقيقة'
+        : '$icon حان وقت $prayerName';
+    final body = isReminder
+        ? _reminderBody(prayerName, offset.minutes)
+        : _prayerBody(prayerName);
 
-    final title = offset == ReminderOffset.none
-        ? 'حان وقت $prayerName'
-        : 'تذكير: $prayerName بعد ${offset.minutes} دقيقة';
-
-    await _plugin.zonedSchedule(
-      id,
-      title,
-      'داليا — أوقات الصلاة',
-      tz.TZDateTime.from(notifyAt, tz.local),
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          channelId,
-          AppConstants.notifChannelName,
-          importance: Importance.high,
-          priority: Priority.high,
-          sound: sound,
-          enableVibration: vibrate,
-          playSound: true,
-          category: AndroidNotificationCategory.alarm,
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        channelId,
+        AppConstants.notifChannelName,
+        importance: Importance.high,
+        priority: Priority.high,
+        sound: sound,
+        enableVibration: vibrate,
+        playSound: true,
+        category: AndroidNotificationCategory.alarm,
+        color: const Color(0xFF1B5E20),
+        icon: '@mipmap/ic_launcher',
+        subText: 'داليا',
+        ticker: title,
+        styleInformation: BigTextStyleInformation(
+          body,
+          contentTitle: title,
+          summaryText: 'داليا • أوقات الصلاة',
+          htmlFormatContent: false,
+          htmlFormatContentTitle: false,
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
     );
+    final scheduledTime = tz.TZDateTime.from(notifyAt, tz.local);
+
+    try {
+      await _plugin.zonedSchedule(
+        id, title, body, scheduledTime, details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    } catch (_) {
+      await _clearNotificationCache();
+      await _plugin.zonedSchedule(
+        id, title, body, scheduledTime, details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+    }
   }
 
   // ─── Cancel prayers ───
+
+  // flutter_local_notifications stores scheduled notifications in a native Android
+  // SharedPreferences file named "scheduled_notifications". After a plugin upgrade
+  // the serialization format changes, causing "Missing type parameter" on every
+  // cancel/schedule call. We clear the native file via a MethodChannel.
+  static const _platformChannel = MethodChannel('app.daliya.quran/platform');
+
+  static Future<void> _clearNotificationCache() async {
+    try {
+      await _platformChannel.invokeMethod('clearNotificationCache');
+    } catch (_) {}
+  }
 
   static Future<void> cancelAllPrayers() async {
     for (final id in [
@@ -269,9 +321,293 @@ class NotificationService {
       AppConstants.notifMaghrib,
       AppConstants.notifIsha,
     ]) {
-      await _plugin.cancel(id);
+      try {
+        await _plugin.cancel(id);
+      } catch (_) {
+        await _clearNotificationCache();
+        break; // cache cleared — remaining notifications are already gone
+      }
     }
   }
+
+  // ─── Debug: schedule azan every minute ───
+
+  // IDs 800-819 reserved for debug notifications
+  static const _debugBaseId = 800;
+  static const kDebugCount = 10;
+
+  /// Returns ({scheduled, errors, firstFireAt}) — scheduled = count of successful zonedSchedule calls
+  static Future<({int scheduled, List<String> errors, DateTime? firstFireAt})> scheduleDebugTest({
+    required String soundId,
+    String? customSoundUri,
+  }) async {
+    // Ensure timezone is ready
+    tz.initializeTimeZones();
+    try {
+      final tzName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(tzName));
+    } catch (_) {}
+
+    // Cancel previous debug notifications and recreate the channel fresh
+    await _clearNotificationCache();
+    for (int i = 0; i < kDebugCount; i++) {
+      try { await _plugin.cancel(_debugBaseId + i); } catch (_) {}
+    }
+
+    final sound = await _buildSound(soundId, customSoundUri);
+    await _recreateDebugChannel(sound); // حذف + إعادة إنشاء لتطبيق الصوت الجديد
+
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        _debugChannelId,
+        'اختبار الإشعارات',
+        importance: Importance.max,
+        priority: Priority.max,
+        sound: sound,
+        enableVibration: true,
+        playSound: true,
+        category: AndroidNotificationCategory.alarm,
+        fullScreenIntent: true,
+        ticker: 'اختبار داليا',
+      ),
+    );
+
+    int scheduled = 0;
+    final errors = <String>[];
+    DateTime? firstFireAt;
+
+    for (int i = 0; i < kDebugCount; i++) {
+      final fireAt = tz.TZDateTime.now(tz.local).add(Duration(seconds: (i + 1) * 10));
+      try {
+        await _plugin.zonedSchedule(
+          _debugBaseId + i,
+          'اختبار الأذان (${i + 1}/$kDebugCount)',
+          'داليا — اختبار | ${fireAt.hour}:${fireAt.minute.toString().padLeft(2, '0')}:${fireAt.second.toString().padLeft(2, '0')}',
+          fireAt,
+          details,
+          androidScheduleMode: AndroidScheduleMode.alarmClock,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+        firstFireAt ??= fireAt;
+        scheduled++;
+      } catch (e) {
+        errors.add('إشعار ${i + 1}: $e');
+      }
+    }
+    return (scheduled: scheduled, errors: errors, firstFireAt: firstFireAt);
+  }
+
+  /// اختبار بـ Dart Timer (يعمل فقط والتطبيق مفتوح — يتجاوز AlarmManager كلياً)
+  static Future<void> scheduleDebugDartTimers({
+    required String soundId,
+    String? customSoundUri,
+    required int intervalSeconds,
+    required int count,
+    required void Function(int fired) onFired,
+  }) async {
+    final sound = await _buildSound(soundId, customSoundUri);
+    await _recreateDebugChannel(sound);
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        _debugChannelId,
+        'اختبار الإشعارات',
+        importance: Importance.max,
+        priority: Priority.max,
+        sound: sound,
+        enableVibration: true,
+        playSound: true,
+        fullScreenIntent: true,
+      ),
+    );
+    for (int i = 0; i < count; i++) {
+      Future.delayed(Duration(seconds: (i + 1) * intervalSeconds), () async {
+        try {
+          await _plugin.show(
+            _debugBaseId + i,
+            'Dart Timer (${i + 1}/$count)',
+            'داليا — Timer Test (بدون AlarmManager)',
+            details,
+          );
+          onFired(i + 1);
+        } catch (_) {}
+      });
+    }
+  }
+
+  static Future<int> getDebugPendingCount() async {
+    final pending = await _plugin.pendingNotificationRequests();
+    return pending
+        .where((n) => n.id >= _debugBaseId && n.id < _debugBaseId + kDebugCount)
+        .length;
+  }
+
+  static Future<void> cancelDebugTest() async {
+    for (int i = 0; i < kDebugCount; i++) {
+      try { await _plugin.cancel(_debugBaseId + i); } catch (_) {}
+    }
+  }
+
+  // channel مخصص للـ debug — يُحذف ويُعاد إنشاؤه في كل اختبار لتجنب كاش Android
+  static const _debugChannelId = 'prayer_times_debug_test';
+
+  static Future<AndroidNotificationSound?> _buildSound(String soundId, String? customSoundUri) async {
+    if (soundId == 'custom' && customSoundUri != null) {
+      return UriAndroidNotificationSound(customSoundUri);
+    }
+    if (soundId != 'default') {
+      final match = kPrayerSounds.where((s) => s.id == soundId).firstOrNull;
+      if (match != null && match.rawFileName.isNotEmpty) {
+        return RawResourceAndroidNotificationSound(match.rawFileName);
+      }
+    }
+    return null;
+  }
+
+  static Future<void> _recreateDebugChannel(AndroidNotificationSound? sound) async {
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin == null) return;
+    // حذف الـ channel القديم أولاً حتى تُطبَّق إعدادات الصوت الجديدة
+    await androidPlugin.deleteNotificationChannel(_debugChannelId);
+    await androidPlugin.createNotificationChannel(AndroidNotificationChannel(
+      _debugChannelId,
+      'اختبار الإشعارات',
+      description: 'channel مؤقت للاختبار',
+      importance: Importance.max,
+      sound: sound,
+      playSound: true,
+      enableVibration: true,
+    ));
+  }
+
+  /// إشعار فوري (بدون جدولة) — يختبر الـ channel والصوت
+  static Future<bool> showDebugNow({required String soundId, String? customSoundUri}) async {
+    final sound = await _buildSound(soundId, customSoundUri);
+    await _recreateDebugChannel(sound);
+    try {
+      await _plugin.show(
+        _debugBaseId + kDebugCount,
+        'اختبار فوري — داليا',
+        'إذا ظهر هذا الإشعار فالـ channel والصوت يعملان ✓',
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _debugChannelId,
+            'اختبار الإشعارات',
+            importance: Importance.max,
+            priority: Priority.max,
+            sound: sound,
+            enableVibration: true,
+            playSound: true,
+            fullScreenIntent: true,
+          ),
+        ),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── Immediate show (used by PrayerTimerService Dart timers) ───
+
+  static Future<void> showPrayerNow({
+    required String prayerName,
+    required String soundId,
+    required bool vibrate,
+    String? customSoundUri,
+  }) async {
+    final channelId = _channelIdFor(soundId, customSoundUri);
+    final sound = await _buildSound(soundId, customSoundUri);
+    final icon = _prayerIcon(prayerName);
+    final title = '$icon حان وقت $prayerName';
+    final body = _prayerBody(prayerName);
+    try {
+      await _plugin.show(
+        _prayerIdFor(prayerName),
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channelId,
+            AppConstants.notifChannelName,
+            importance: Importance.high,
+            priority: Priority.high,
+            sound: sound,
+            enableVibration: vibrate,
+            playSound: true,
+            category: AndroidNotificationCategory.alarm,
+            color: const Color(0xFF1B5E20),
+            icon: '@mipmap/ic_launcher',
+            subText: 'داليا',
+            ticker: title,
+            styleInformation: BigTextStyleInformation(
+              body,
+              contentTitle: title,
+              summaryText: 'داليا • أوقات الصلاة',
+            ),
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  static Future<void> showReminderNow({
+    required String prayerName,
+    required int minutesBefore,
+    required String soundId,
+    required bool vibrate,
+    String? customSoundUri,
+  }) async {
+    final channelId = _channelIdFor(soundId, customSoundUri);
+    final sound = await _buildSound(soundId, customSoundUri);
+    final icon = _prayerIcon(prayerName);
+    final title = '$icon $prayerName بعد $minutesBefore دقيقة';
+    final body = _reminderBody(prayerName, minutesBefore);
+    try {
+      await _plugin.show(
+        _reminderIdFor(prayerName),
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channelId,
+            AppConstants.notifChannelName,
+            importance: Importance.high,
+            priority: Priority.high,
+            sound: sound,
+            enableVibration: vibrate,
+            playSound: true,
+            color: const Color(0xFFF9A825),
+            icon: '@mipmap/ic_launcher',
+            subText: 'داليا',
+            ticker: title,
+            styleInformation: BigTextStyleInformation(
+              body,
+              contentTitle: title,
+              summaryText: 'داليا • تذكير بالصلاة',
+            ),
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  static int _prayerIdFor(String name) => switch (name) {
+        'الفجر' => AppConstants.notifFajr,
+        'الظهر' => AppConstants.notifDhuhr,
+        'العصر' => AppConstants.notifAsr,
+        'المغرب' => AppConstants.notifMaghrib,
+        _ => AppConstants.notifIsha,
+      };
+
+  static int _reminderIdFor(String name) => switch (name) {
+        'الفجر' => AppConstants.notifFajrReminder,
+        'الظهر' => AppConstants.notifDhuhrReminder,
+        'العصر' => AppConstants.notifAsrReminder,
+        'المغرب' => AppConstants.notifMaghribReminder,
+        _ => AppConstants.notifIshaReminder,
+      };
 
   // ─── Background / persistent notification ───
 

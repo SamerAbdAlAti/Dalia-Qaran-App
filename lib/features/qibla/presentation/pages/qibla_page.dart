@@ -37,6 +37,9 @@ class _QiblaView extends StatelessWidget {
                 onRetry: () => context.read<QiblaCubit>().load(),
               );
             }
+            if (state is QiblaNoLocation) {
+              return const _NoLocationView();
+            }
             if (state is QiblaError) {
               return _ErrorView(
                 message: state.message,
@@ -125,6 +128,55 @@ class _PermissionView extends StatelessWidget {
                     EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
               ),
               child: Text('السماح بالوصول', style: TextStyle(fontSize: 15.sp)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── No Location ───
+
+class _NoLocationView extends StatelessWidget {
+  const _NoLocationView();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(32.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.my_location_outlined,
+                size: 56.r, color: colors.textSecondary),
+            SizedBox(height: 16.h),
+            Text(
+              'الموقع غير محدد',
+              style: TextStyle(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w600,
+                color: colors.textPrimary,
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              'يرجى تحديد موقعك من الشاشة الرئيسية أولاً، ثم العودة هنا.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 14.sp, color: colors.textSecondary, height: 1.6),
+            ),
+            SizedBox(height: 24.h),
+            FilledButton(
+              onPressed: () => context.read<QiblaCubit>().load(),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                padding:
+                    EdgeInsets.symmetric(horizontal: 32.w, vertical: 12.h),
+              ),
+              child: Text('إعادة المحاولة', style: TextStyle(fontSize: 15.sp)),
             ),
           ],
         ),
