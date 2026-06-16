@@ -579,9 +579,8 @@ class _LineBasedContent extends StatelessWidget {
     double candidateSize,
     double maxWidth,
     FontWeight fontWeight,
+    double badgeSize, // actual rendered badge width (passed from build)
   ) {
-    const badgeRatio = 1.1; // badge width ≈ fontSize * badgeRatio
-
     // ── Pass 1: find font size so the widest line fits ──
     double size = candidateSize;
     for (final line in lines) {
@@ -590,7 +589,7 @@ class _LineBasedContent extends StatelessWidget {
       final text = line.text.replaceAll(_ayahMarkerPattern, '');
       if (text.trim().isEmpty) continue;
       final nBadges = _ayahMarkerPattern.allMatches(line.text).length;
-      final avail = maxWidth - nBadges * size * badgeRatio;
+      final avail = maxWidth - nBadges * badgeSize;
       final tp = TextPainter(
         text: TextSpan(
           text: text,
@@ -625,10 +624,10 @@ class _LineBasedContent extends StatelessWidget {
         maxLines: 1,
       )..layout(maxWidth: double.infinity);
 
-      // naturalW = text width + badge widths at current font size
-      final naturalW = tp.width + nBadges * size * badgeRatio;
-      // scaleX stretches whole line to fill maxWidth; cap at 1.6 for very short lines
-      final scaleX = naturalW > 0 ? (maxWidth / naturalW).clamp(1.0, 1.6) : 1.0;
+      // naturalW = text width + actual badge widths
+      final naturalW = tp.width + nBadges * badgeSize;
+      // scaleX stretches line to fill maxWidth; cap at 1.5 for very short lines
+      final scaleX = naturalW > 0 ? (maxWidth / naturalW).clamp(1.0, 1.5) : 1.0;
       scales.add(scaleX);
     }
 
@@ -655,10 +654,10 @@ class _LineBasedContent extends StatelessWidget {
             (w) => w.value == fontWeight,
             orElse: () => FontWeight.w400,
           );
-          final layout = _computePageLayout(lines, candidateSize, constraints.maxWidth, fw);
+          final badgeSize = (baseLineH * 0.72).clamp(16.0, 34.0);
+          final layout = _computePageLayout(lines, candidateSize, constraints.maxWidth, fw, badgeSize);
           final textFontSize = layout.fontSize;
           final lineScales = layout.lineScales;
-          final badgeSize = (textFontSize * 1.1).clamp(16.0, 26.0);
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
