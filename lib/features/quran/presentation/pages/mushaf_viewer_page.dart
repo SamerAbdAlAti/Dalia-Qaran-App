@@ -572,20 +572,25 @@ class _LineBasedContent extends StatelessWidget {
   });
 
   // Pass 1: find the largest font size where the widest line still fits.
-  // Pass 2: for each non-centered line compute extra word spacing so it fills
-  //         the available width (approximating Mushaf kashida justification).
-  static ({double fontSize, List<double?> wordSpacings}) _computePageLayout(
+  // Computes global font size (Pass 1) then per-line horizontal scale factors
+  // (Pass 2) to fill each line edge-to-edge — kashida-style stretching.
+  static ({double fontSize, List<double> lineScales}) _computePageLayout(
     List<MushafLine> lines,
     double candidateSize,
     double maxWidth,
     FontWeight fontWeight,
   ) {
-    // ── Pass 1: global font size ──
+    const badgeRatio = 1.1; // badge width ≈ fontSize * badgeRatio
+
+    // ── Pass 1: find font size so the widest line fits ──
     double size = candidateSize;
     for (final line in lines) {
       if (line.type == MushafLineType.surahName) continue;
+      if (line.type == MushafLineType.basmala || line.isCentered) continue;
       final text = line.text.replaceAll(_ayahMarkerPattern, '');
       if (text.trim().isEmpty) continue;
+      final nBadges = _ayahMarkerPattern.allMatches(line.text).length;
+      final avail = maxWidth - nBadges * size * badgeRatio;
       final tp = TextPainter(
         text: TextSpan(
           text: text,
@@ -594,25 +599,23 @@ class _LineBasedContent extends StatelessWidget {
         textDirection: TextDirection.rtl,
         maxLines: 1,
       )..layout(maxWidth: double.infinity);
-      if (tp.width > maxWidth) {
-        size = (size * maxWidth / tp.width * 0.97).clamp(10.0, candidateSize);
+      if (tp.width > avail && avail > 0) {
+        size = (size * avail / tp.width * 0.97).clamp(10.0, candidateSize);
       }
     }
 
-    // ── Pass 2: per-line word spacing for justification ──
-    final badgeW = size * 0.9; // approximate badge widget width at this size
-    final spacings = <double?>[];
+    // ── Pass 2: per-line scaleX so text fills maxWidth ──
+    final scales = <double>[];
     for (final line in lines) {
       final skip = line.type == MushafLineType.surahName ||
           line.type == MushafLineType.basmala ||
           line.isCentered;
-      if (skip) { spacings.add(null); continue; }
+      if (skip) { scales.add(1.0); continue; }
 
       final text = line.text.replaceAll(_ayahMarkerPattern, '');
-      final gaps = text.trim().split(RegExp(r'\s+')).length - 1;
-      if (gaps <= 0) { spacings.add(null); continue; }
+      if (text.trim().isEmpty) { scales.add(1.0); continue; }
 
-      final markerCount = _ayahMarkerPattern.allMatches(line.text).length;
+      final nBadges = _ayahMarkerPattern.allMatches(line.text).length;
       final tp = TextPainter(
         text: TextSpan(
           text: text,
@@ -622,12 +625,14 @@ class _LineBasedContent extends StatelessWidget {
         maxLines: 1,
       )..layout(maxWidth: double.infinity);
 
-      // Available space after text + badges; skip if line is already near-full
-      final extra = maxWidth - tp.width - markerCount * badgeW;
-      spacings.add(extra > 3 ? extra / gaps : null);
+      // naturalW = text width + badge widths at current font size
+      final naturalW = tp.width + nBadges * size * badgeRatio;
+      // scaleX stretches whole line to fill maxWidth; cap at 1.6 for very short lines
+      final scaleX = naturalW > 0 ? (maxWidth / naturalW).clamp(1.0, 1.6) : 1.0;
+      scales.add(scaleX);
     }
 
-    return (fontSize: size, wordSpacings: spacings);
+    return (fontSize: size, lineScales: scales);
   }
 
   @override
@@ -652,8 +657,8 @@ class _LineBasedContent extends StatelessWidget {
           );
           final layout = _computePageLayout(lines, candidateSize, constraints.maxWidth, fw);
           final textFontSize = layout.fontSize;
-          final wordSpacings = layout.wordSpacings;
-          final badgeSize = (textFontSize * 0.9).clamp(12.0, 20.0);
+          final lineScales = layout.lineScales;
+          final badgeSize = (textFontSize * 1.1).clamp(16.0, 26.0);
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -679,7 +684,6 @@ class _LineBasedContent extends StatelessWidget {
                     ? (fw.value >= FontWeight.w500.value ? fw : FontWeight.w500)
                     : fw,
                 height: 1.0,
-                wordSpacing: wordSpacings[i],
               );
 
               final hasMarkers = _ayahMarkerPattern.hasMatch(line.text);
@@ -723,12 +727,21 @@ class _LineBasedContent extends StatelessWidget {
                 );
               }
 
+              final scaleX = isCentered ? 1.0 : lineScales[i];
               return SizedBox(
                 height: baseLineH,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
+                child: Align(
                   alignment: isCentered ? Alignment.center : Alignment.centerRight,
-                  child: textWidget,
+                  child: Transform.scale(
+                    scaleX: scaleX,
+                    scaleY: 1.0,
+                    alignment: isCentered ? Alignment.center : Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: isCentered ? Alignment.center : Alignment.centerRight,
+                      child: textWidget,
+                    ),
+                  ),
                 ),
               );
             }).toList(),
@@ -824,10 +837,10 @@ class _AyahEndBadge extends StatelessWidget {
           Text(
             _toArabicNum(number),
             style: TextStyle(
-              color: Colors.white,
-              fontSize: size * 0.38,
+              color: const Color(0xFF3D1C00),
+              fontSize: size * 0.34,
               height: 1.0,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
