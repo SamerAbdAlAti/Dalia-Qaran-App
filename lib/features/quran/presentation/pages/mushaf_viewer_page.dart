@@ -7,6 +7,8 @@ import '../../../../core/di/injection_container.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/mushaf_entities.dart';
 import '../cubit/mushaf_cubit.dart';
+import '../../../quran_audio/presentation/cubit/quran_audio_cubit.dart';
+import '../../../quran_audio/presentation/widgets/audio_player_sheet.dart';
 
 // ─── Constants ───
 
@@ -55,9 +57,16 @@ class _MushafViewerPageState extends State<MushafViewerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => sl<MushafCubit>()
-        ..initialize(startPage: widget.initialPage),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => sl<MushafCubit>()
+            ..initialize(startPage: widget.initialPage),
+        ),
+        BlocProvider(
+          create: (_) => sl<QuranAudioCubit>()..loadReciters(),
+        ),
+      ],
       child: _MushafContent(surahId: widget.surahId),
     );
   }
@@ -76,6 +85,7 @@ class _MushafContent extends StatefulWidget {
 class _MushafContentState extends State<_MushafContent> {
   PageController? _pageController;
   bool _showControls = true;
+  final _selectedAyah = ValueNotifier<(int, int)?>(null);
 
   void _goToPage(int page) {
     _pageController?.jumpToPage(page - 1);
@@ -112,6 +122,7 @@ class _MushafContentState extends State<_MushafContent> {
             showControls: _showControls,
             onTap: () => setState(() => _showControls = !_showControls),
             onGoToPage: _goToPage,
+            selectedAyah: _selectedAyah,
           );
         }
         return _LoadingView();
@@ -122,6 +133,7 @@ class _MushafContentState extends State<_MushafContent> {
   @override
   void dispose() {
     _pageController?.dispose();
+    _selectedAyah.dispose();
     super.dispose();
   }
 }
@@ -134,6 +146,7 @@ class _ReaderView extends StatelessWidget {
   final bool showControls;
   final VoidCallback onTap;
   final void Function(int page) onGoToPage;
+  final ValueNotifier<(int, int)?> selectedAyah;
 
   const _ReaderView({
     required this.state,
@@ -141,40 +154,570 @@ class _ReaderView extends StatelessWidget {
     required this.showControls,
     required this.onTap,
     required this.onGoToPage,
+    required this.selectedAyah,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final surahNames = state.surahInfos
+        .map((s) => s.arabicName
+            .replaceAll('سُورَةُ', '')
+            .replaceAll('سُورَة', '')
+            .trim())
+        .toList();
+
     return Scaffold(
       backgroundColor:
           isDark ? const Color(0xFF0F0D08) : const Color(0xFFEDE8D5),
       drawer: _MushafDrawer(state: state, onGoToPage: onGoToPage),
-      body: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.translucent,
-        child: Stack(
-          children: [
-            PageView.builder(
-              controller: controller,
-              itemCount: _totalPages,
-              onPageChanged: (index) =>
-                  context.read<MushafCubit>().setPage(index + 1),
-              itemBuilder: (context, index) {
-                return _MushafPageWidget(
-                  pageNumber: index + 1,
-                  state: state,
-                  isDark: isDark,
-                );
-              },
+      body: Column(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.translucent,
+              child: Stack(
+                children: [
+                  PageView.builder(
+                    controller: controller,
+                    itemCount: _totalPages,
+                    onPageChanged: (index) =>
+                        context.read<MushafCubit>().setPage(index + 1),
+                    itemBuilder: (context, index) {
+                      return _MushafPageWidget(
+                        pageNumber: index + 1,
+                        state: state,
+                        isDark: isDark,
+                        selectedAyah: selectedAyah,
+                      );
+                    },
+                  ),
+                  if (showControls) ...[
+                    _TopBar(state: state, isDark: isDark),
+                    _BottomBar(state: state, isDark: isDark),
+                  ],
+                ],
+              ),
             ),
-            if (showControls) ...[
-              _TopBar(state: state, isDark: isDark),
-              _BottomBar(state: state, isDark: isDark),
-            ],
-          ],
+          ),
+          _AyahBar(mushafState: state),
+          AudioPlayerSheet(surahNames: surahNames),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Ayah Bar ───
+
+class _AyahBar extends StatefulWidget {
+  final MushafReady mushafState;
+  const _AyahBar({required this.mushafState});
+
+  @override
+  State<_AyahBar> createState() => _AyahBarState();
+}
+
+class _AyahBarState extends State<_AyahBar> {
+  int? _surahId;
+  int? _ayahNum;
+  int _trackedPage = 0;
+
+  List<MushafAyahEntity> _pageAyahs(BuildContext context) {
+    final cubit = context.read<MushafCubit>();
+    return cubit.getPageData(widget.mushafState.currentPage)?.ayahs ?? [];
+  }
+
+  void _initForPage(BuildContext context) {
+    final ayahs = _pageAyahs(context);
+    if (ayahs.isNotEmpty) {
+      _surahId = ayahs.first.surahId;
+      _ayahNum = ayahs.first.ayahNum;
+    } else {
+      _surahId = null;
+      _ayahNum = null;
+    }
+    _trackedPage = widget.mushafState.currentPage;
+  }
+
+  @override
+  void didUpdateWidget(_AyahBar old) {
+    super.didUpdateWidget(old);
+    if (widget.mushafState.currentPage != _trackedPage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _initForPage(context));
+      });
+    }
+  }
+
+  void _goPrev(BuildContext context) {
+    if (_surahId == null || _ayahNum == null) return;
+    final ayahs = _pageAyahs(context);
+    final idx = ayahs.indexWhere(
+        (a) => a.surahId == _surahId && a.ayahNum == _ayahNum);
+    if (idx > 0) {
+      setState(() {
+        _surahId = ayahs[idx - 1].surahId;
+        _ayahNum = ayahs[idx - 1].ayahNum;
+      });
+    }
+  }
+
+  void _goNext(BuildContext context) {
+    if (_surahId == null || _ayahNum == null) return;
+    final ayahs = _pageAyahs(context);
+    final idx = ayahs.indexWhere(
+        (a) => a.surahId == _surahId && a.ayahNum == _ayahNum);
+    if (idx >= 0 && idx < ayahs.length - 1) {
+      setState(() {
+        _surahId = ayahs[idx + 1].surahId;
+        _ayahNum = ayahs[idx + 1].ayahNum;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_trackedPage == 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _initForPage(context));
+      });
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor =
+        isDark ? const Color(0xFF1C1509) : const Color(0xFFFBF6E8);
+
+    String label = '';
+    if (_surahId != null && _ayahNum != null) {
+      final surahName = widget.mushafState
+          .surahInfo(_surahId!)
+          .arabicName
+          .replaceAll('سُورَةُ', '')
+          .replaceAll('سُورَة', '')
+          .trim();
+      label = '$surahName  •  الآية ${_toArabicNum(_ayahNum!)}';
+    }
+
+    final ayahs = _surahId != null ? _pageAyahs(context) : <MushafAyahEntity>[];
+    final idx = ayahs.indexWhere(
+        (a) => a.surahId == _surahId && a.ayahNum == _ayahNum);
+    final canPrev = idx > 0;
+    final canNext = idx >= 0 && idx < ayahs.length - 1;
+
+    return Container(
+      height: 40.h,
+      decoration: BoxDecoration(
+        color: bgColor,
+        border: Border(top: BorderSide(color: AppColors.gold, width: 1)),
+      ),
+      child: Row(
+        textDirection: TextDirection.rtl,
+        children: [
+          IconButton(
+            icon: Icon(Icons.arrow_forward_ios,
+                size: 14.r,
+                color: canPrev
+                    ? context.colors.textPrimary
+                    : context.colors.textSecondary),
+            onPressed: canPrev ? () => _goPrev(context) : null,
+            padding: EdgeInsets.zero,
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: _surahId != null
+                  ? () => _showAyahOptions(context)
+                  : null,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                textDirection: TextDirection.rtl,
+                style: TextStyle(
+                  color: context.colors.textPrimary,
+                  fontSize: 13.sp,
+                  fontFamily: 'Cairo',
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: Icon(Icons.arrow_back_ios,
+                size: 14.r,
+                color: canNext
+                    ? context.colors.textPrimary
+                    : context.colors.textSecondary),
+            onPressed: canNext ? () => _goNext(context) : null,
+            padding: EdgeInsets.zero,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAyahOptions(BuildContext context) {
+    if (_surahId == null || _ayahNum == null) return;
+    final mushafCubit = context.read<MushafCubit>();
+    final audioCubit = context.read<QuranAudioCubit>();
+    final surahName = widget.mushafState
+        .surahInfo(_surahId!)
+        .arabicName
+        .replaceAll('سُورَةُ', '')
+        .replaceAll('سُورَة', '')
+        .trim();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: mushafCubit),
+          BlocProvider.value(value: audioCubit),
+        ],
+        child: _AyahTapSheet(
+          surahId: _surahId!,
+          ayahNum: _ayahNum!,
+          surahName: surahName,
+          pageNum: widget.mushafState.currentPage,
+          mushafState: widget.mushafState,
         ),
+      ),
+    );
+  }
+}
+
+// ─── Ayah Tap Sheet ───
+
+class _AyahTapSheet extends StatelessWidget {
+  final int surahId;
+  final int ayahNum;
+  final String surahName;
+  final int pageNum;
+  final MushafReady mushafState;
+
+  const _AyahTapSheet({
+    required this.surahId,
+    required this.ayahNum,
+    required this.surahName,
+    required this.pageNum,
+    required this.mushafState,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF1A1A12) : Colors.white;
+    final textPrimary = isDark ? const Color(0xFFEBD9A6) : const Color(0xFF1A0A00);
+    final textSec = isDark ? Colors.white54 : Colors.black45;
+    final isBookmarked = mushafState.bookmarkFor(surahId, ayahNum) != null;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+        border: Border(top: BorderSide(color: AppColors.gold, width: 1.5)),
+      ),
+      padding: EdgeInsets.fromLTRB(20.w, 14.h, 20.w, 28.h),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 36.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: Colors.grey.withAlpha(80),
+                borderRadius: BorderRadius.circular(2.r),
+              ),
+            ),
+          ),
+          SizedBox(height: 16.h),
+          // Ornamental header
+          Text(
+            '﴾ سورة $surahName ﴿',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'ScheherazadeNew',
+              fontSize: 20.sp,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            'الآية ${_toArabicNum(ayahNum)}',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 13.sp,
+              color: textSec,
+            ),
+          ),
+          SizedBox(height: 20.h),
+          // Primary: play ayah
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.read<QuranAudioCubit>().playAyah(surahId, ayahNum);
+            },
+            icon: Icon(Icons.headphones_rounded, size: 20.r),
+            label: Text(
+              'استمع للآية الكريمة',
+              style: TextStyle(fontSize: 15.sp, fontFamily: 'Cairo'),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(vertical: 14.h),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14.r)),
+              elevation: 0,
+            ),
+          ),
+          SizedBox(height: 10.h),
+          // Secondary: play surah
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.read<QuranAudioCubit>().playSurah(surahId);
+            },
+            icon: Icon(Icons.queue_music_rounded, size: 18.r,
+                color: AppColors.primary),
+            label: Text(
+              'استمع لسورة $surahName',
+              style: TextStyle(
+                  fontSize: 14.sp, fontFamily: 'Cairo', color: AppColors.primary),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: EdgeInsets.symmetric(vertical: 12.h),
+              side: BorderSide(color: AppColors.primary.withAlpha(180)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14.r)),
+            ),
+          ),
+          // Mini active player
+          BlocBuilder<QuranAudioCubit, QuranAudioState>(
+            buildWhen: (p, c) =>
+                (p is QuranAudioPlaying) != (c is QuranAudioPlaying) ||
+                (p is QuranAudioPaused) != (c is QuranAudioPaused),
+            builder: (context, audioState) {
+              if (audioState is! QuranAudioPlaying &&
+                  audioState is! QuranAudioPaused) {
+                return const SizedBox.shrink();
+              }
+              final playing = audioState is QuranAudioPlaying ? audioState : null;
+              final paused = audioState is QuranAudioPaused ? audioState : null;
+              final isPlaying = playing != null;
+              final sNum = playing?.surahNum ?? paused!.surahNum;
+              final reciterName =
+                  playing?.reciter.arabicName ?? paused!.reciter.arabicName;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(height: 14.h),
+                  Divider(color: isDark ? Colors.white12 : Colors.black12),
+                  SizedBox(height: 8.h),
+                  Row(
+                    textDirection: TextDirection.rtl,
+                    children: [
+                      Container(
+                        width: 36.r,
+                        height: 36.r,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withAlpha(25),
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                        child: Icon(Icons.music_note_rounded,
+                            color: AppColors.primary, size: 18.r),
+                      ),
+                      SizedBox(width: 10.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              reciterName,
+                              style: TextStyle(
+                                  fontSize: 11.sp,
+                                  color: textSec,
+                                  fontFamily: 'Cairo'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              'سورة رقم ${_toArabicNum(sNum)}',
+                              style: TextStyle(
+                                  fontSize: 12.sp,
+                                  color: textPrimary,
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          isPlaying ? Icons.pause_circle_filled_rounded
+                              : Icons.play_circle_filled_rounded,
+                          color: AppColors.primary,
+                          size: 32.r,
+                        ),
+                        onPressed: () {
+                          if (isPlaying) {
+                            context.read<QuranAudioCubit>().pause();
+                          } else {
+                            context.read<QuranAudioCubit>().resume();
+                          }
+                        },
+                        padding: EdgeInsets.zero,
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.stop_circle_outlined,
+                            color: textSec, size: 24.r),
+                        onPressed: () {
+                          context.read<QuranAudioCubit>().stop();
+                          Navigator.of(context).pop();
+                        },
+                        padding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+          SizedBox(height: 14.h),
+          Divider(color: isDark ? Colors.white12 : Colors.black12),
+          SizedBox(height: 8.h),
+          // Action row
+          Row(
+            textDirection: TextDirection.rtl,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _TapSheetAction(
+                icon: isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                label: isBookmarked ? 'إزالة علامة' : 'إضافة علامة',
+                color: isBookmarked ? AppColors.gold : null,
+                onTap: () {
+                  if (isBookmarked) {
+                    context.read<MushafCubit>().removeBookmark(surahId, ayahNum);
+                  } else {
+                    context.read<MushafCubit>().addOrUpdateBookmark(
+                          MushafBookmark(
+                            surahId: surahId,
+                            ayahNum: ayahNum,
+                            pageNum: pageNum,
+                            timestamp: DateTime.now().millisecondsSinceEpoch,
+                          ),
+                        );
+                  }
+                  Navigator.of(context).pop();
+                },
+              ),
+              _TapSheetAction(
+                icon: Icons.copy_rounded,
+                label: 'نسخ',
+                onTap: () {
+                  Clipboard.setData(ClipboardData(
+                      text: 'سورة $surahName آية ${_toArabicNum(ayahNum)}'));
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('تم النسخ',
+                        textDirection: TextDirection.rtl,
+                        style: TextStyle(fontSize: 13.sp)),
+                    duration: const Duration(seconds: 2),
+                    backgroundColor: AppColors.primary,
+                  ));
+                },
+              ),
+              _TapSheetAction(
+                icon: Icons.highlight_alt_rounded,
+                label: 'تمييز / ملاحظة',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  final cubit = context.read<MushafCubit>();
+                  final audioCubit = context.read<QuranAudioCubit>();
+                  final pageData = cubit.getPageData(pageNum);
+                  final ayahText = pageData?.ayahs
+                          .where((a) =>
+                              a.surahId == surahId && a.ayahNum == ayahNum)
+                          .firstOrNull
+                          ?.text ??
+                      '';
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
+                    builder: (_) => MultiBlocProvider(
+                      providers: [
+                        BlocProvider.value(value: cubit),
+                        BlocProvider.value(value: audioCubit),
+                      ],
+                      child: _AyahActionSheet(
+                        surahId: surahId,
+                        verseNum: ayahNum,
+                        ayahText: ayahText,
+                        existing: mushafState.bookmarkFor(surahId, ayahNum),
+                        surahName: surahName,
+                        pageNumber: pageNum,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TapSheetAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final Color? color;
+
+  const _TapSheetAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = color ?? AppColors.primary;
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 48.r,
+            height: 48.r,
+            decoration: BoxDecoration(
+              color: c.withAlpha(18),
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Icon(icon, color: c, size: 22.r),
+          ),
+          SizedBox(height: 5.h),
+          Text(
+            label,
+            style: TextStyle(
+              color: isDark ? Colors.white60 : Colors.black54,
+              fontSize: 10.sp,
+              fontFamily: 'Cairo',
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -389,47 +932,117 @@ class _MushafPageWidget extends StatelessWidget {
   final int pageNumber;
   final MushafReady state;
   final bool isDark;
+  final ValueNotifier<(int, int)?> selectedAyah;
 
   const _MushafPageWidget({
     required this.pageNumber,
     required this.state,
     required this.isDark,
+    required this.selectedAyah,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Rebuilds only when playing ayah changes
+    final playingAyah = context.select<QuranAudioCubit, (int, int)?>(
+      (cubit) {
+        final s = cubit.state;
+        if (s is QuranAudioPlaying && !s.isSurah && s.ayahNum != null) {
+          return (s.surahNum, s.ayahNum!);
+        }
+        return null;
+      },
+    );
+
     final pageBg = isDark ? const Color(0xFF1C1509) : const Color(0xFFFBF6E8);
 
-    // QcfPage internally uses MediaQuery screen dimensions for sizing.
-    // It must receive full screen width so line breaks match the printed Mushaf.
-    // Constraining it to a smaller box causes incorrect text wrapping.
-    final qcfTheme = isDark
-        ? QcfThemeData.dark().copyWith(
-            pageBackgroundColor: const Color(0xFF1C1509),
-            verseTextColor: const Color(0xFFEBD9A6),
-            verseBackgroundColor: _verseHighlight,
-          )
-        : QcfThemeData(
-            verseTextColor: const Color(0xFF1A0A00),
-            pageBackgroundColor: const Color(0xFFFBF6E8),
-            verseBackgroundColor: _verseHighlight,
-          );
+    return ValueListenableBuilder<(int, int)?>(
+      valueListenable: selectedAyah,
+      builder: (ctx, selected, _) {
+        // QcfPage must receive full screen width so line breaks match printed Mushaf.
+        final qcfTheme = isDark
+            ? QcfThemeData.dark().copyWith(
+                pageBackgroundColor: const Color(0xFF1C1509),
+                verseTextColor: const Color(0xFFEBD9A6),
+                verseBackgroundColor: (s, v) =>
+                    _verseHighlight(s, v, playingAyah, selected),
+              )
+            : QcfThemeData(
+                verseTextColor: const Color(0xFF1A0A00),
+                pageBackgroundColor: const Color(0xFFFBF6E8),
+                verseBackgroundColor: (s, v) =>
+                    _verseHighlight(s, v, playingAyah, selected),
+              );
 
-    return ColoredBox(
-      color: pageBg,
-      child: QcfPage(
-        pageNumber: pageNumber,
-        theme: qcfTheme,
-        onLongPress: (surahNumber, verseNumber) =>
-            _onVerseLongPress(context, surahNumber, verseNumber),
-      ),
+        return ColoredBox(
+          color: pageBg,
+          child: QcfPage(
+            pageNumber: pageNumber,
+            theme: qcfTheme,
+            onTap: (surahNumber, verseNumber) =>
+                _onVerseTap(ctx, surahNumber, verseNumber),
+            onLongPress: (surahNumber, verseNumber) =>
+                _onVerseLongPress(ctx, surahNumber, verseNumber),
+          ),
+        );
+      },
     );
   }
 
-  Color? _verseHighlight(int surahId, int verseNum) {
+  Color? _verseHighlight(
+      int surahId, int verseNum, (int, int)? playingAyah, (int, int)? selected) {
+    // Selected ayah (tapped) gets a distinct gold highlight
+    if (selected != null && selected.$1 == surahId && selected.$2 == verseNum) {
+      return isDark
+          ? const Color(0xFFFFD700).withAlpha(90)
+          : const Color(0xFFFFD700).withAlpha(160);
+    }
+    // Playing ayah highlight
+    if (playingAyah != null &&
+        playingAyah.$1 == surahId &&
+        playingAyah.$2 == verseNum) {
+      return isDark
+          ? const Color(0xFFFFD700).withAlpha(65)
+          : const Color(0xFFFFF176).withAlpha(210);
+    }
     final bookmark = state.bookmarkFor(surahId, verseNum);
     if (bookmark == null) return null;
     return _highlightColors[bookmark.colorIndex]?.withAlpha(130);
+  }
+
+  void _onVerseTap(BuildContext context, int surahNumber, int verseNumber) {
+    final cubit = context.read<MushafCubit>();
+    final audioCubit = context.read<QuranAudioCubit>();
+    final st = cubit.state;
+    if (st is! MushafReady) return;
+
+    final surahName = st
+        .surahInfo(surahNumber)
+        .arabicName
+        .replaceAll('سُورَةُ', '')
+        .replaceAll('سُورَة', '')
+        .trim();
+
+    selectedAyah.value = (surahNumber, verseNumber);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      useRootNavigator: true,
+      builder: (_) => MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: cubit),
+          BlocProvider.value(value: audioCubit),
+        ],
+        child: _AyahTapSheet(
+          surahId: surahNumber,
+          ayahNum: verseNumber,
+          surahName: surahName,
+          pageNum: st.currentPage,
+          mushafState: st,
+        ),
+      ),
+    ).then((_) => selectedAyah.value = null);
   }
 
   void _onVerseLongPress(

@@ -1,5 +1,7 @@
 import 'dart:async';
+import '../constants/app_constants.dart';
 import 'notification_service.dart';
+import 'reminders_service.dart';
 
 // Dart-timer-based prayer notification scheduler.
 // Fires immediately via _plugin.show() — no AlarmManager needed.
@@ -8,12 +10,30 @@ import 'notification_service.dart';
 
 class PrayerTimerService {
   static final _timers = <Timer>[];
+  static Timer? _istighfarTimer;
 
   static void cancelAll() {
     for (final t in _timers) {
       t.cancel();
     }
     _timers.clear();
+    _istighfarTimer?.cancel();
+    _istighfarTimer = null;
+  }
+
+  static void scheduleIstighfarTimer({
+    required bool enabled,
+    required String soundId,
+    int intervalMinutes = 60,
+  }) {
+    _istighfarTimer?.cancel();
+    _istighfarTimer = null;
+    if (!enabled) return;
+    final reminder = RemindersService.dhikrDefs
+        .firstWhere((d) => d.id == AppConstants.notifDhikrIstighfar);
+    _istighfarTimer = Timer.periodic(Duration(minutes: intervalMinutes), (_) {
+      RemindersService.showDhikrNow(reminder: reminder, soundId: soundId);
+    });
   }
 
   static void scheduleToday({

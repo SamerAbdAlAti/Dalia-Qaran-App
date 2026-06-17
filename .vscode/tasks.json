@@ -1,0 +1,18 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "logcat (flutter only)",
+      "type": "shell",
+      "command": "adb logcat -s flutter:V WM-WorkerWrapper:I WM-Processor:D",
+      "presentation": {
+        "panel": "dedicated",
+        "group": "logs",
+        "clear": true,
+        "reveal": "always"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

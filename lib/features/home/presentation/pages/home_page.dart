@@ -37,7 +37,7 @@ class _HomeScaffold extends StatelessWidget {
         builder: (context, state) {
           if (state is HomeLoading || state is HomeInitial) {
             return _LoadingView(
-                onPickCity: () => _showCityPicker(context));
+                onPickCity: () => showCityPicker(context));
           }
           if (state is HomeLocationDisabled) {
             return const _LocationDisabledView();
@@ -52,7 +52,7 @@ class _HomeScaffold extends StatelessWidget {
               onNavigateTo: onNavigateTo,
             );
           }
-          return _LoadingView(onPickCity: () => _showCityPicker(context));
+          return _LoadingView(onPickCity: () => showCityPicker(context));
         },
       ),
     );
@@ -148,7 +148,7 @@ class _ErrorView extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => _showCityPicker(context),
+                  onPressed: () => showCityPicker(context),
                   icon: const Icon(Icons.location_city_outlined),
                   label: const Text('تحديد المدينة يدوياً'),
                   style: OutlinedButton.styleFrom(
@@ -230,7 +230,7 @@ class _LocationDisabledView extends StatelessWidget {
                         TextStyle(fontSize: 14.sp, color: AppColors.primary)),
               ),
               TextButton(
-                onPressed: () => _showCityPicker(context),
+                onPressed: () => showCityPicker(context),
                 child: Text('تحديد المدينة يدوياً',
                     style: TextStyle(
                         fontSize: 14.sp, color: colors.textSecondary)),
@@ -1001,19 +1001,19 @@ class _PrayerChip extends StatelessWidget {
 
 // ─── City Picker ───
 
-void _showCityPicker(BuildContext context) {
+void showCityPicker(BuildContext context) {
   final cubit = context.read<HomeCubit>();
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _CityPickerSheet(cubit: cubit),
+    builder: (_) => CityPickerSheet(cubit: cubit),
   );
 }
 
-class _CityPickerSheet extends StatelessWidget {
+class CityPickerSheet extends StatelessWidget {
   final HomeCubit cubit;
-  const _CityPickerSheet({required this.cubit});
+  const CityPickerSheet({super.key, required this.cubit});
 
   @override
   Widget build(BuildContext context) {

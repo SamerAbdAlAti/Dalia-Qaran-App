@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'package:adhan/adhan.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/services/platform_service.dart';
 import '../../../../core/services/prayer_timer_service.dart';
 import '../../../../core/services/reminders_service.dart';
 import '../../../../core/services/widget_service.dart';
@@ -62,14 +64,18 @@ class HomeCubit extends Cubit<HomeState> {
   final SetManualLocation _setManualLocation;
   final SetCalculationMethod _setCalculationMethod;
   Timer? _timer;
+  int _opGen = 0;
 
   HomeCubit(this._getPrayerTimes, this._refreshLocation,
       this._setManualLocation, this._setCalculationMethod)
       : super(const HomeInitial());
 
   Future<void> load() async {
+    final gen = ++_opGen;
     emit(const HomeLoading());
-    (await _getPrayerTimes()).fold(
+    final result = await _getPrayerTimes();
+    if (gen != _opGen || isClosed) return;
+    result.fold(
       (f) => emit(_classifyFailure(f.message)),
       (times) {
         _startTimer();
@@ -77,16 +83,17 @@ class HomeCubit extends Cubit<HomeState> {
         _scheduleNotifications(times);
         _scheduleReminders(times);
         _updateWidgets(times);
-        Future.delayed(
-          const Duration(seconds: 1),
-          NotificationService.requestPermission,
-        );
+        Future.delayed(const Duration(seconds: 1), NotificationService.requestPermission);
+        _requestBatteryExemptionOnce();
       },
     );
   }
 
   Future<void> refresh() async {
-    (await _refreshLocation()).fold(
+    final gen = ++_opGen;
+    final result = await _refreshLocation();
+    if (gen != _opGen || isClosed) return;
+    result.fold(
       (f) => emit(_classifyFailure(f.message)),
       (times) {
         emit(HomeLoaded(prayerTimes: times, now: DateTime.now()));
@@ -98,8 +105,11 @@ class HomeCubit extends Cubit<HomeState> {
   }
 
   Future<void> setCity(double lat, double lng, String cityName) async {
+    final gen = ++_opGen;
     emit(const HomeLoading());
-    (await _setManualLocation(lat, lng, cityName)).fold(
+    final result = await _setManualLocation(lat, lng, cityName);
+    if (gen != _opGen || isClosed) return;
+    result.fold(
       (f) => emit(HomeError(f.message)),
       (times) {
         _startTimer();
@@ -114,9 +124,11 @@ class HomeCubit extends Cubit<HomeState> {
   Future<void> changeCalculationMethod(String method) async {
     final s = state;
     if (s is! HomeLoaded) return;
-    (await _setCalculationMethod(
-            method, s.prayerTimes.latitude, s.prayerTimes.longitude))
-        .fold(
+    final gen = ++_opGen;
+    final result = await _setCalculationMethod(
+        method, s.prayerTimes.latitude, s.prayerTimes.longitude);
+    if (gen != _opGen || isClosed) return;
+    result.fold(
       (f) => emit(HomeError(f.message)),
       (times) {
         emit(s.copyWith(prayerTimes: times));
@@ -148,6 +160,11 @@ class HomeCubit extends Cubit<HomeState> {
         },
         fajrTime: times.fajr,
         ishaTime: times.isha,
+      );
+      PrayerTimerService.scheduleIstighfarTimer(
+        enabled: prefs.getBool(AppConstants.keyDhikrIstighfar) ?? false,
+        soundId: prefs.getString(AppConstants.keyDhikrIstighfarSound) ?? 'dhikr_istighfar',
+        intervalMinutes: prefs.getInt(AppConstants.keyDhikrIstighfarInterval) ?? 60,
       );
       RemindersService.scheduleDhikrAll(
         prefs: {
@@ -228,8 +245,10 @@ class HomeCubit extends Cubit<HomeState> {
       );
 
       // AlarmManager — backup لعند إغلاق التطبيق كلياً (يحتاج Autostart على MIUI)
+      final tomorrowMap = _calcTomorrowPrayers(times.latitude, times.longitude, prefs);
       NotificationService.scheduleAllPrayers(
         prayerTimes: prayerMap,
+        tomorrowPrayerTimes: tomorrowMap,
         enabledPrayers: enabledMap,
         soundId: soundId,
         offset: offset,
@@ -239,11 +258,73 @@ class HomeCubit extends Cubit<HomeState> {
     } catch (_) {}
   }
 
+  Map<String, DateTime> _calcTomorrowPrayers(
+      double lat, double lng, SharedPreferences prefs) {
+    try {
+      final coords = Coordinates(lat, lng);
+      final method = prefs.getString(AppConstants.keyCalcMethod) ?? 'egyptian';
+      final params = _prayerParamsFor(method);
+      final tomorrow = DateTime.now().add(const Duration(days: 1));
+      final t = PrayerTimes(
+        coords,
+        DateComponents(tomorrow.year, tomorrow.month, tomorrow.day),
+        params,
+      );
+      return {
+        'الفجر': t.fajr,
+        'الظهر': t.dhuhr,
+        'العصر': t.asr,
+        'المغرب': t.maghrib,
+        'العشاء': t.isha,
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  CalculationParameters _prayerParamsFor(String method) {
+    switch (method) {
+      case 'muslim_world_league':
+        return CalculationMethod.muslim_world_league.getParameters();
+      case 'karachi':
+        return CalculationMethod.karachi.getParameters();
+      case 'umm_al_qura':
+        return CalculationMethod.umm_al_qura.getParameters();
+      case 'kuwait':
+        return CalculationMethod.kuwait.getParameters();
+      case 'qatar':
+        return CalculationMethod.qatar.getParameters();
+      case 'dubai':
+        return CalculationMethod.dubai.getParameters();
+      case 'moon_sighting_committee':
+        return CalculationMethod.moon_sighting_committee.getParameters();
+      default:
+        return CalculationMethod.egyptian.getParameters().withMethodAdjustments(
+              PrayerAdjustments(
+                  fajr: 1, sunrise: 0, dhuhr: 1, asr: 0, maghrib: 2, isha: -2),
+            );
+    }
+  }
+
   HomeState _classifyFailure(String message) {
     if (message.contains('معطلة') || message.contains('Location services')) {
       return const HomeLocationDisabled();
     }
     return HomeError(message);
+  }
+
+  Future<void> _requestBatteryExemptionOnce() async {
+    try {
+      final prefs = sl<SharedPreferences>();
+      const key = 'battery_exemption_requested';
+      if (prefs.getBool(key) == true) return;
+      final ignored = await PlatformService.isBatteryOptimizationIgnored();
+      if (!ignored) {
+        await Future.delayed(const Duration(seconds: 3));
+        await PlatformService.requestBatteryOptimizationExemption();
+      }
+      await prefs.setBool(key, true);
+    } catch (_) {}
   }
 
   void _startTimer() {

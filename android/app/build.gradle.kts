@@ -28,9 +28,16 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // R8 is enabled by default in Flutter release builds.
+            // proguardFiles MUST be declared here or custom rules in proguard-rules.pro
+            // are never applied — R8 then strips Gson TypeToken generics which causes
+            // FlutterLocalNotificationsPlugin to throw "Missing type parameter" and
+            // all zonedSchedule calls fail silently.
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }

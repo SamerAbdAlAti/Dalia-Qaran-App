@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,6 +17,9 @@ import '../../../../core/state/font_scale_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/theme_cubit.dart';
 import '../../../home/presentation/cubit/home_cubit.dart';
+import '../../../home/presentation/pages/home_page.dart' show showCityPicker;
+import '../../../quran_audio/domain/entities/reciter_entity.dart';
+import '../../../quran_audio/presentation/cubit/quran_audio_cubit.dart';
 
 // ─── Page ───
 
@@ -36,8 +41,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _pickingCustomSound = false;
 
   // ─── Reminder state ───
-  late bool _tajweedMode;
-  late int _quranFontWeight;
   late bool _remAdhkarMorning, _remAdhkarEvening, _remFajrSunnah,
       _remQiyam, _remDuha, _remQuran, _remSalahAnnabi;
   late String _remAdhkarMorningTime, _remAdhkarEveningTime,
@@ -68,9 +71,6 @@ class _SettingsPageState extends State<SettingsPage> {
       _reminderMin = p.getInt(AppConstants.keyNotifReminderMin) ?? 0;
       _vibrate = p.getBool(AppConstants.keyNotifVibrate) ?? true;
       _backgroundMode = p.getBool(AppConstants.keyBackgroundMode) ?? false;
-      _tajweedMode = p.getBool('mushaf_tajweed_mode') ?? false;
-      _quranFontWeight = p.getInt('mushaf_font_weight') ?? 400;
-
       _remAdhkarMorning = p.getBool(AppConstants.keyReminderAdhkarMorning) ?? false;
       _remAdhkarMorningTime = p.getString(AppConstants.keyReminderAdhkarMorningTime) ?? '06:00';
       _remAdhkarEvening = p.getBool(AppConstants.keyReminderAdhkarEvening) ?? false;
@@ -438,6 +438,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     batteryOptIgnored: _batteryOptIgnored,
                     onToggle: _toggleBackgroundMode,
                     onRequestBatteryOpt: _requestBatteryOpt,
+                    onOpenAutostart: () => PlatformService.openMiuiAutostart(),
                   ),
                   SizedBox(height: 12.h),
 
@@ -488,21 +489,14 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   SizedBox(height: 12.h),
 
-                  // ─── القرآن الكريم ───
-                  _SectionTitle(title: 'القرآن الكريم', colors: colors),
-                  _QuranSettingsCard(
-                    colors: colors,
-                    tajweedMode: _tajweedMode,
-                    fontWeight: _quranFontWeight,
-                    onTajweedToggle: (v) async {
-                      setState(() => _tajweedMode = v);
-                      await sl<SharedPreferences>().setBool('mushaf_tajweed_mode', v);
-                    },
-                    onFontWeightChanged: (w) async {
-                      setState(() => _quranFontWeight = w);
-                      await sl<SharedPreferences>().setInt('mushaf_font_weight', w);
-                    },
-                  ),
+                  // ─── الموقع ───
+                  _SectionTitle(title: 'الموقع', colors: colors),
+                  _LocationCard(colors: colors),
+                  SizedBox(height: 12.h),
+
+                  // ─── تلاوة القرآن الصوتية ───
+                  _SectionTitle(title: 'تلاوة القرآن الصوتية', colors: colors),
+                  _QuranAudioCard(colors: colors),
                   SizedBox(height: 12.h),
 
                   // ─── عن التطبيق ───
@@ -1102,6 +1096,7 @@ class _BackgroundModeCard extends StatelessWidget {
   final bool batteryOptIgnored;
   final ValueChanged<bool> onToggle;
   final VoidCallback onRequestBatteryOpt;
+  final VoidCallback onOpenAutostart;
 
   const _BackgroundModeCard({
     required this.colors,
@@ -1109,6 +1104,7 @@ class _BackgroundModeCard extends StatelessWidget {
     required this.batteryOptIgnored,
     required this.onToggle,
     required this.onRequestBatteryOpt,
+    required this.onOpenAutostart,
   });
 
   @override
@@ -1206,6 +1202,42 @@ class _BackgroundModeCard extends StatelessWidget {
               ),
             ),
           ],
+          Divider(height: 0.5, color: colors.divider),
+          InkWell(
+            onTap: onOpenAutostart,
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(16.r)),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              child: Row(
+                children: [
+                  Icon(Icons.auto_mode_outlined,
+                      color: colors.textSecondary, size: 18.r),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'التشغيل التلقائي (MIUI/شاومي)',
+                          style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w500),
+                        ),
+                        Text(
+                          'مطلوب على أجهزة شاومي لضمان وصول الإشعارات',
+                          style: TextStyle(
+                              color: colors.textSecondary, fontSize: 11.sp),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios_rounded,
+                      color: colors.textSecondary, size: 14.r),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1837,116 +1869,439 @@ class _ReminderTile extends StatelessWidget {
   }
 }
 
-// ─── Quran settings card ───
+// ─── Location Card ───
 
-class _QuranSettingsCard extends StatelessWidget {
+class _LocationCard extends StatelessWidget {
   final AppColorScheme colors;
-  final bool tajweedMode;
-  final int fontWeight;
-  final ValueChanged<bool> onTajweedToggle;
-  final ValueChanged<int> onFontWeightChanged;
-
-  const _QuranSettingsCard({
-    required this.colors,
-    required this.tajweedMode,
-    required this.fontWeight,
-    required this.onTajweedToggle,
-    required this.onFontWeightChanged,
-  });
-
-  static const _weights = [
-    (label: 'خفيف', value: 300),
-    (label: 'عادي', value: 400),
-    (label: 'سميك', value: 700),
-  ];
+  const _LocationCard({required this.colors});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: colors.card,
-      borderRadius: BorderRadius.circular(12.r),
+    final state = context.watch<HomeCubit>().state;
+    final cityName = state is HomeLoaded ? state.prayerTimes.cityName : '';
+
+    return Container(
+      decoration: _cardDecoration(colors),
       child: Column(
         children: [
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
-            title: Text(
-              'ألوان التجويد',
-              style: TextStyle(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w600,
-                color: colors.textPrimary,
-              ),
-            ),
-            subtitle: Text(
-              'تلوين أحكام التجويد في المصحف',
-              style: TextStyle(fontSize: 12.sp, color: colors.textSecondary),
-            ),
-            value: tajweedMode,
-            onChanged: onTajweedToggle,
-            activeThumbColor: Colors.white,
-            activeTrackColor: AppColors.primary,
-          ),
-          Divider(height: 1, color: colors.surface),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
             child: Row(
               children: [
+                Icon(Icons.location_on_outlined, color: AppColors.primary, size: 22.r),
+                SizedBox(width: 14.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text('الموقع الحالي',
+                          style: TextStyle(color: colors.textPrimary, fontSize: 15.sp)),
                       Text(
-                        'سُمك خط القرآن',
-                        style: TextStyle(
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w600,
-                          color: colors.textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        'اختر وزن الخط في المصحف',
-                        style: TextStyle(fontSize: 12.sp, color: colors.textSecondary),
+                        cityName.isNotEmpty ? cityName : 'غير محدد',
+                        style: TextStyle(color: colors.textSecondary, fontSize: 12.sp),
                       ),
                     ],
                   ),
                 ),
-                SizedBox(width: 8.w),
-                Row(
-                  children: _weights.map((w) {
-                    final selected = fontWeight == w.value;
-                    return Padding(
-                      padding: EdgeInsets.only(right: 6.w),
-                      child: GestureDetector(
-                        onTap: () => onFontWeightChanged(w.value),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                          decoration: BoxDecoration(
-                            color: selected ? AppColors.primary : colors.surface,
-                            borderRadius: BorderRadius.circular(8.r),
-                            border: Border.all(
-                              color: selected ? AppColors.primary : colors.textSecondary.withAlpha(80),
-                            ),
-                          ),
-                          child: Text(
-                            w.label,
-                            style: TextStyle(
-                              fontSize: 12.sp,
-                              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                              color: selected ? Colors.white : colors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
               ],
+            ),
+          ),
+          Divider(height: 0.5, color: colors.divider, indent: 52.w),
+          InkWell(
+            onTap: () => showCityPicker(context),
+            borderRadius: BorderRadius.circular(14.r),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+              child: Row(
+                children: [
+                  Icon(Icons.location_city_outlined, color: AppColors.primary, size: 22.r),
+                  SizedBox(width: 14.w),
+                  Expanded(
+                    child: Text('اختر مدينة من القائمة',
+                        style: TextStyle(color: colors.textPrimary, fontSize: 15.sp)),
+                  ),
+                  Icon(Icons.chevron_left, color: colors.textSecondary, size: 20.r),
+                ],
+              ),
+            ),
+          ),
+          Divider(height: 0.5, color: colors.divider, indent: 52.w),
+          InkWell(
+            onTap: () => context.read<HomeCubit>().refresh(),
+            borderRadius: BorderRadius.circular(14.r),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+              child: Row(
+                children: [
+                  Icon(Icons.my_location, color: AppColors.primary, size: 22.r),
+                  SizedBox(width: 14.w),
+                  Expanded(
+                    child: Text('تحديد الموقع تلقائياً (GPS)',
+                        style: TextStyle(color: colors.textPrimary, fontSize: 15.sp)),
+                  ),
+                  Icon(Icons.chevron_left, color: colors.textSecondary, size: 20.r),
+                ],
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Quran Audio Card ───
+
+class _QuranAudioCard extends StatefulWidget {
+  final AppColorScheme colors;
+  const _QuranAudioCard({required this.colors});
+
+  @override
+  State<_QuranAudioCard> createState() => _QuranAudioCardState();
+}
+
+class _QuranAudioCardState extends State<_QuranAudioCard> {
+  bool _fullDownload = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fullDownload =
+        sl<SharedPreferences>().getBool(AppConstants.keyAudioFullDownload) ??
+            false;
+  }
+
+  void _showDownloadNow() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => BlocProvider<QuranAudioCubit>(
+        create: (_) => sl<QuranAudioCubit>()..loadReciters(),
+        child: const _DownloadNowSheet(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: _cardDecoration(widget.colors),
+      child: Column(
+        children: [
+          SwitchListTile(
+            value: _fullDownload,
+            onChanged: (v) {
+              setState(() => _fullDownload = v);
+              sl<SharedPreferences>().setBool(AppConstants.keyAudioFullDownload, v);
+            },
+            activeThumbColor: AppColors.primary,
+            title: Text(
+              'تحميل السور تلقائياً عند الاستماع',
+              textDirection: TextDirection.rtl,
+              style: TextStyle(
+                color: widget.colors.textPrimary,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            subtitle: Text(
+              'يحفظ الصوت للاستماع بدون إنترنت لاحقاً',
+              textDirection: TextDirection.rtl,
+              style: TextStyle(color: widget.colors.textSecondary, fontSize: 12.sp),
+            ),
+          ),
+          Divider(height: 0.5, color: widget.colors.divider, indent: 16.w),
+          InkWell(
+            onTap: _showDownloadNow,
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(14.r)),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+              child: Row(
+                children: [
+                  Icon(Icons.download_for_offline_outlined,
+                      color: AppColors.primary, size: 22.r),
+                  SizedBox(width: 14.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('تحميل الآن',
+                            style: TextStyle(
+                                color: widget.colors.textPrimary,
+                                fontSize: 15.sp,
+                                fontWeight: FontWeight.w500)),
+                        Text('تحميل القرآن كاملاً لقارئ من اختيارك',
+                            style: TextStyle(
+                                color: widget.colors.textSecondary,
+                                fontSize: 12.sp)),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_left,
+                      color: widget.colors.textSecondary, size: 20.r),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Download Now Sheet ───
+
+class _DownloadNowSheet extends StatefulWidget {
+  const _DownloadNowSheet();
+
+  @override
+  State<_DownloadNowSheet> createState() => _DownloadNowSheetState();
+}
+
+class _DownloadNowSheetState extends State<_DownloadNowSheet> {
+  List<ReciterEntity> _reciters = [];
+  String? _errorMessage;
+
+  Future<bool> _hasDownloads(String identifier) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final d = Directory('${dir.path}/quran_audio/$identifier');
+    if (!await d.exists()) return false;
+    return await d.list().length > 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+
+    return BlocConsumer<QuranAudioCubit, QuranAudioState>(
+      listener: (context, state) {
+        if (state is QuranAudioRecitersLoaded) {
+          setState(() {
+            _reciters = state.reciters;
+            _errorMessage = null;
+          });
+        } else if (state is QuranAudioError) {
+          setState(() => _errorMessage = state.message);
+        }
+      },
+      builder: (context, state) {
+        final isDownloading = state is QuranAudioDownloading;
+        final dl = state is QuranAudioDownloading ? state : null;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: colors.card,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+            border: Border(top: BorderSide(color: AppColors.gold, width: 1.5)),
+          ),
+          constraints: BoxConstraints(maxHeight: 0.85.sh),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(height: 12.h),
+              Center(
+                child: Container(
+                  width: 36.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withAlpha(80),
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+              ),
+              SizedBox(height: 12.h),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'تحميل الآن',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          color: colors.textPrimary,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (!isDownloading)
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Icon(Icons.close,
+                            size: 20.r, color: colors.textSecondary),
+                      ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(20.w, 4.h, 20.w, 0),
+                child: Text(
+                  'اضغط 📥 بجانب القارئ لتحميل القرآن كاملاً',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(color: colors.textSecondary, fontSize: 11.sp),
+                ),
+              ),
+              Divider(height: 16.h, color: colors.divider),
+              if (_errorMessage != null)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withAlpha(20),
+                      borderRadius: BorderRadius.circular(10.r),
+                      border: Border.all(color: AppColors.error.withAlpha(60)),
+                    ),
+                    child: Row(
+                      textDirection: TextDirection.rtl,
+                      children: [
+                        Icon(Icons.error_outline, color: AppColors.error, size: 18.r),
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            textDirection: TextDirection.rtl,
+                            style: TextStyle(color: AppColors.error, fontSize: 12.sp),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => setState(() => _errorMessage = null),
+                          child: Icon(Icons.close, color: AppColors.error, size: 16.r),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (_reciters.isEmpty && state is QuranAudioLoadingReciters)
+                Padding(
+                  padding: EdgeInsets.all(32.r),
+                  child: Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.separated(
+                    padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
+                    itemCount: _reciters.length,
+                    separatorBuilder: (_, _) =>
+                        Divider(height: 1, color: colors.divider),
+                    itemBuilder: (context, i) {
+                      final reciter = _reciters[i];
+                      final isThisDownloading =
+                          dl?.reciter.identifier == reciter.identifier;
+                      final progress = dl?.progress ?? 0.0;
+                      final surahNum = dl?.surahNum ?? 0;
+
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 8.w, vertical: 4.h),
+                            title: FutureBuilder<bool>(
+                              future: _hasDownloads(reciter.identifier),
+                              builder: (context, snap) {
+                                final hasDl = snap.data ?? false;
+                                return Row(
+                                  textDirection: TextDirection.rtl,
+                                  children: [
+                                    if (hasDl || isThisDownloading) ...[
+                                      Icon(
+                                        Icons.download_done,
+                                        size: 16.r,
+                                        color: isThisDownloading
+                                            ? AppColors.primary
+                                            : Colors.green,
+                                      ),
+                                      SizedBox(width: 4.w),
+                                    ],
+                                    Expanded(
+                                      child: Text(
+                                        reciter.arabicName,
+                                        textAlign: TextAlign.right,
+                                        style: TextStyle(
+                                          color: colors.textPrimary,
+                                          fontSize: 14.sp,
+                                          fontWeight: FontWeight.w500,
+                                          fontFamily: 'Cairo',
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                            subtitle: Text(
+                              reciter.englishName,
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                  color: colors.textSecondary, fontSize: 11.sp),
+                            ),
+                            trailing: isThisDownloading
+                                ? SizedBox(
+                                    width: 22.r,
+                                    height: 22.r,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.primary,
+                                      value: progress,
+                                    ),
+                                  )
+                                : isDownloading
+                                    ? Icon(Icons.hourglass_empty,
+                                        size: 20.r, color: colors.textSecondary)
+                                    : IconButton(
+                                        icon: Icon(Icons.download_outlined,
+                                            size: 22.r, color: AppColors.primary),
+                                        onPressed: () => context
+                                            .read<QuranAudioCubit>()
+                                            .downloadAllForReciter(reciter),
+                                      ),
+                          ),
+                          if (isThisDownloading)
+                            Padding(
+                              padding:
+                                  EdgeInsets.fromLTRB(12.w, 0, 12.w, 8.h),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4.r),
+                                    child: LinearProgressIndicator(
+                                      value: progress,
+                                      backgroundColor:
+                                          AppColors.primary.withAlpha(30),
+                                      valueColor: AlwaysStoppedAnimation(
+                                          AppColors.primary),
+                                      minHeight: 4.h,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4.h),
+                                  Text(
+                                    'سورة $surahNum من ١١٤ — ${(progress * 100).round()}٪',
+                                    textAlign: TextAlign.right,
+                                    style: TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 11.sp,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              SizedBox(height: MediaQuery.paddingOf(context).bottom + 8.h),
+            ],
+          ),
+        );
+      },
     );
   }
 }

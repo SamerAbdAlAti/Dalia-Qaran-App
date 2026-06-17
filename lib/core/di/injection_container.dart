@@ -17,7 +17,6 @@ import '../../features/quran/domain/repositories/mushaf_repository.dart';
 import '../../features/quran/domain/usecases/quran_usecases.dart';
 import '../../features/quran/domain/usecases/mushaf_usecases.dart';
 import '../../features/quran/presentation/cubit/surah_list_cubit.dart';
-import '../../features/quran/presentation/cubit/surah_reader_cubit.dart';
 import '../../features/quran/presentation/cubit/mushaf_cubit.dart';
 import '../../features/adhkar/data/datasources/adhkar_datasource.dart';
 import '../../features/adhkar/data/repositories/adhkar_repository_impl.dart';
@@ -29,6 +28,12 @@ import '../../features/qibla/data/repositories/qibla_repository_impl.dart';
 import '../../features/qibla/domain/repositories/qibla_repository.dart';
 import '../../features/qibla/domain/usecases/qibla_usecases.dart';
 import '../../features/qibla/presentation/cubit/qibla_cubit.dart';
+import '../../features/quran_audio/data/datasources/quran_audio_local_datasource.dart';
+import '../../features/quran_audio/data/datasources/quran_audio_remote_datasource.dart';
+import '../../features/quran_audio/data/repositories/quran_audio_repository_impl.dart';
+import '../../features/quran_audio/domain/repositories/quran_audio_repository.dart';
+import '../../features/quran_audio/domain/usecases/quran_audio_usecases.dart';
+import '../../features/quran_audio/presentation/cubit/quran_audio_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -48,6 +53,7 @@ Future<void> initDependencies() async {
   _initQuran();
   _initQibla();
   _initAdhkar();
+  _initQuranAudio();
 }
 
 void _initHome() {
@@ -71,8 +77,6 @@ void _initQuran() {
   sl.registerLazySingleton<SaveLastRead>(() => SaveLastRead(sl()));
   sl.registerLazySingleton<GetLastRead>(() => GetLastRead(sl()));
   sl.registerFactory<SurahListCubit>(() => SurahListCubit(sl(), sl()));
-  sl.registerFactory<SurahReaderCubit>(
-      () => SurahReaderCubit(sl(), sl(), sl()));
 
   // Mushaf (page-based reader)
   sl.registerLazySingleton<MushafLocalDatasource>(
@@ -106,4 +110,17 @@ void _initAdhkar() {
       () => AdhkarRepositoryImpl(sl()));
   sl.registerLazySingleton<GetAdhkar>(() => GetAdhkar(sl()));
   sl.registerFactory<AdhkarReaderCubit>(() => AdhkarReaderCubit(sl()));
+}
+
+void _initQuranAudio() {
+  sl.registerLazySingleton<QuranAudioRemoteDatasource>(
+      () => QuranAudioRemoteDatasource());
+  sl.registerLazySingleton<QuranAudioLocalDatasource>(
+      () => QuranAudioLocalDatasource());
+  sl.registerLazySingleton<QuranAudioRepository>(
+      () => QuranAudioRepositoryImpl(sl(), sl(), sl()));
+  sl.registerLazySingleton<GetReciters>(() => GetReciters(sl()));
+  sl.registerLazySingleton<DownloadSurah>(() => DownloadSurah(sl()));
+  sl.registerFactory<QuranAudioCubit>(
+      () => QuranAudioCubit(sl(), sl(), sl(), sl()));
 }

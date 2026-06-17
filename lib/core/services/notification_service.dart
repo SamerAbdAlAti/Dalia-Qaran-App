@@ -86,6 +86,9 @@ class NotificationService {
   static const _bgChannelId = 'daliya_background';
   static const _bgChannelName = 'الخدمة في الخلفية';
 
+  static const _downloadChannelId = 'quran_audio_download';
+  static const _downloadNotifId = 900;
+
   // ─── Init ───
 
   static Future<void> init() async {
@@ -122,6 +125,20 @@ class NotificationService {
           playSound: false,
           enableVibration: false,
           showBadge: false,
+        ));
+
+    // Download progress channel
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(const AndroidNotificationChannel(
+          _downloadChannelId,
+          'تحميل القرآن الصوتي',
+          description: 'تقدم تحميل التلاوات الصوتية',
+          importance: Importance.low,
+          playSound: false,
+          enableVibration: false,
+          showBadge: true,
         ));
 
     _initialized = true;
@@ -176,17 +193,61 @@ class NotificationService {
     required ReminderOffset offset,
     required bool vibrate,
     String? customSoundUri,
+    Map<String, DateTime>? tomorrowPrayerTimes,
   }) async {
+    await _clearNotificationCache();
     await _createNotificationChannel(
         soundId: soundId, customSoundUri: customSoundUri);
     await cancelAllPrayers();
 
+    // alarmClock mode needs user-granted SCHEDULE_EXACT_ALARM — fall back to
+    // inexactAllowWhileIdle (up to 9 min delay) when permission not granted.
+    final canExact = await checkExactAlarmPermission();
+    final mode = canExact
+        ? AndroidScheduleMode.alarmClock
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+
+    await _scheduleDay(
+      dayPrayerTimes: prayerTimes,
+      enabledPrayers: enabledPrayers,
+      idOffset: 0,
+      soundId: soundId,
+      offset: offset,
+      vibrate: vibrate,
+      customSoundUri: customSoundUri,
+      scheduleMode: mode,
+    );
+
+    if (tomorrowPrayerTimes != null && tomorrowPrayerTimes.isNotEmpty) {
+      await _scheduleDay(
+        dayPrayerTimes: tomorrowPrayerTimes,
+        enabledPrayers: enabledPrayers,
+        idOffset: AppConstants.notifTomorrowOffset,
+        soundId: soundId,
+        offset: offset,
+        vibrate: vibrate,
+        customSoundUri: customSoundUri,
+        scheduleMode: mode,
+      );
+    }
+  }
+
+  static Future<void> _scheduleDay({
+    required Map<String, DateTime> dayPrayerTimes,
+    required Map<String, bool> enabledPrayers,
+    required int idOffset,
+    required String soundId,
+    required ReminderOffset offset,
+    required bool vibrate,
+    String? customSoundUri,
+    AndroidScheduleMode scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle,
+  }) async {
     final prayers = {
-      'الفجر': (AppConstants.notifFajr, prayerTimes['الفجر']),
-      'الظهر': (AppConstants.notifDhuhr, prayerTimes['الظهر']),
-      'العصر': (AppConstants.notifAsr, prayerTimes['العصر']),
-      'المغرب': (AppConstants.notifMaghrib, prayerTimes['المغرب']),
-      'العشاء': (AppConstants.notifIsha, prayerTimes['العشاء']),
+      'الفجر': (AppConstants.notifFajr + idOffset, dayPrayerTimes['الفجر']),
+      'الظهر': (AppConstants.notifDhuhr + idOffset, dayPrayerTimes['الظهر']),
+      'العصر': (AppConstants.notifAsr + idOffset, dayPrayerTimes['العصر']),
+      'المغرب': (AppConstants.notifMaghrib + idOffset, dayPrayerTimes['المغرب']),
+      'العشاء': (AppConstants.notifIsha + idOffset, dayPrayerTimes['العشاء']),
     };
 
     for (final entry in prayers.entries) {
@@ -203,6 +264,7 @@ class NotificationService {
         offset: offset,
         vibrate: vibrate,
         customSoundUri: customSoundUri,
+        scheduleMode: scheduleMode,
       );
     }
   }
@@ -240,6 +302,7 @@ class NotificationService {
     required ReminderOffset offset,
     required bool vibrate,
     String? customSoundUri,
+    AndroidScheduleMode scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle,
   }) async {
     final notifyAt = prayerTime.subtract(Duration(minutes: offset.minutes));
     if (notifyAt.isBefore(DateTime.now())) return;
@@ -267,7 +330,7 @@ class NotificationService {
         playSound: true,
         category: AndroidNotificationCategory.alarm,
         color: const Color(0xFF1B5E20),
-        icon: '@mipmap/ic_launcher',
+        icon: '@drawable/ic_notification',
         subText: 'داليا',
         ticker: title,
         styleInformation: BigTextStyleInformation(
@@ -284,7 +347,7 @@ class NotificationService {
     try {
       await _plugin.zonedSchedule(
         id, title, body, scheduledTime, details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: scheduleMode,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
@@ -292,7 +355,7 @@ class NotificationService {
       await _clearNotificationCache();
       await _plugin.zonedSchedule(
         id, title, body, scheduledTime, details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: scheduleMode,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
       );
@@ -314,18 +377,24 @@ class NotificationService {
   }
 
   static Future<void> cancelAllPrayers() async {
-    for (final id in [
+    final ids = [
       AppConstants.notifFajr,
       AppConstants.notifDhuhr,
       AppConstants.notifAsr,
       AppConstants.notifMaghrib,
       AppConstants.notifIsha,
-    ]) {
+      AppConstants.notifFajr + AppConstants.notifTomorrowOffset,
+      AppConstants.notifDhuhr + AppConstants.notifTomorrowOffset,
+      AppConstants.notifAsr + AppConstants.notifTomorrowOffset,
+      AppConstants.notifMaghrib + AppConstants.notifTomorrowOffset,
+      AppConstants.notifIsha + AppConstants.notifTomorrowOffset,
+    ];
+    for (final id in ids) {
       try {
         await _plugin.cancel(id);
       } catch (_) {
         await _clearNotificationCache();
-        break; // cache cleared — remaining notifications are already gone
+        break;
       }
     }
   }
@@ -538,7 +607,7 @@ class NotificationService {
             playSound: true,
             category: AndroidNotificationCategory.alarm,
             color: const Color(0xFF1B5E20),
-            icon: '@mipmap/ic_launcher',
+            icon: '@drawable/ic_notification',
             subText: 'داليا',
             ticker: title,
             styleInformation: BigTextStyleInformation(
@@ -579,7 +648,7 @@ class NotificationService {
             enableVibration: vibrate,
             playSound: true,
             color: const Color(0xFFF9A825),
-            icon: '@mipmap/ic_launcher',
+            icon: '@drawable/ic_notification',
             subText: 'داليا',
             ticker: title,
             styleInformation: BigTextStyleInformation(
@@ -627,7 +696,7 @@ class NotificationService {
           showWhen: false,
           playSound: false,
           enableVibration: false,
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_notification',
         ),
       ),
     );
@@ -680,5 +749,80 @@ class NotificationService {
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     return await android?.canScheduleExactNotifications() ?? false;
+  }
+
+  // ─── Download progress notification ───
+
+  static Future<void> showDownloadProgress({
+    required String reciterName,
+    required int surahNum,
+    required int total,
+    String surahName = '',
+  }) async {
+    final percent = ((surahNum / total) * 100).round();
+    final body = surahName.isNotEmpty
+        ? '$surahName  ($surahNum/$total) — $percent٪'
+        : 'سورة $surahNum من $total — $percent٪';
+    try {
+      await _plugin.show(
+        _downloadNotifId,
+        '📥 $reciterName',
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _downloadChannelId,
+            'تحميل القرآن الصوتي',
+            importance: Importance.low,
+            priority: Priority.low,
+            onlyAlertOnce: true,
+            showProgress: true,
+            maxProgress: total,
+            progress: surahNum,
+            ongoing: true,
+            autoCancel: false,
+            playSound: false,
+            enableVibration: false,
+            icon: '@drawable/ic_notification',
+            subText: 'داليا',
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  static Future<void> cancelDownloadNotification() async {
+    try {
+      await _plugin.cancel(_downloadNotifId);
+    } catch (_) {}
+  }
+
+  static Future<void> showDownloadComplete({
+    required String reciterName,
+    int failedCount = 0,
+  }) async {
+    final title = failedCount == 0 ? '✅ اكتمل التحميل' : '⚠️ اكتمل التحميل مع أخطاء';
+    final body  = failedCount == 0
+        ? 'تم تحميل $reciterName كاملاً'
+        : 'تم تحميل $reciterName — فشل $failedCount سور (أعد المحاولة)';
+    try {
+      await _plugin.show(
+        _downloadNotifId,
+        title,
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _downloadChannelId,
+            'تحميل القرآن الصوتي',
+            importance: Importance.defaultImportance,
+            priority: Priority.defaultPriority,
+            playSound: false,
+            enableVibration: false,
+            icon: '@drawable/ic_notification',
+            subText: 'داليا',
+            autoCancel: true,
+          ),
+        ),
+      );
+    } catch (_) {}
   }
 }

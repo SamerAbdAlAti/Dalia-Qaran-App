@@ -3,6 +3,7 @@ package app.daliya.quran
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.content.FileProvider
@@ -13,6 +14,23 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
     private val channel = "app.daliya.quran/platform"
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // Clear stale flutter_local_notifications SharedPreferences BEFORE Flutter initializes.
+        // Old entries serialized with a different Gson TypeToken format cause
+        // "Missing type parameter" crashes in loadScheduledNotifications().
+        // We clear once per install by checking a version flag.
+        val migrationPrefs = getSharedPreferences("daliya_migration", MODE_PRIVATE)
+        val clearedVersion = migrationPrefs.getInt("notifications_cleared_version", 0)
+        val currentVersion = try {
+            packageManager.getPackageInfo(packageName, 0).versionCode
+        } catch (_: Exception) { 0 }
+        if (clearedVersion < currentVersion) {
+            getSharedPreferences("scheduled_notifications", MODE_PRIVATE).edit().clear().apply()
+            migrationPrefs.edit().putInt("notifications_cleared_version", currentVersion).apply()
+        }
+        super.onCreate(savedInstanceState)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

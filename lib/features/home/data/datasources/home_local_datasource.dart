@@ -24,9 +24,35 @@ class HomeLocalDatasource {
   }
 
   Future<Map<String, dynamic>> refreshLocationData() async {
-    final position = await _getCurrentPosition();
+    // تجاوز last known — المستخدم طلب موقعاً دقيقاً جديداً
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      throw Exception('تم رفض إذن الموقع');
+    }
+
+    // محاولة بدقة عالية (GPS) — 20 ثانية
+    Position position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      ).timeout(const Duration(seconds: 20));
+    } catch (_) {
+      // احتياطي: دقة متوسطة (شبكة) — 8 ثوانٍ
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+      ).timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => throw Exception('انتهت مهلة تحديد الموقع'),
+      );
+    }
+
     await prefs.setDouble(AppConstants.keyLatitude, position.latitude);
     await prefs.setDouble(AppConstants.keyLongitude, position.longitude);
+    await prefs.remove(AppConstants.keyCityName);
     return _calculate(position.latitude, position.longitude);
   }
 
@@ -57,8 +83,9 @@ class HomeLocalDatasource {
       throw Exception('تم رفض إذن الموقع');
     }
 
-    // 1. آخر موقع محفوظ — فوري
-    final last = await Geolocator.getLastKnownPosition();
+    // 1. آخر موقع محفوظ — فوري (3s timeout لأن MIUI قد يتجمد بدونه)
+    final last = await Geolocator.getLastKnownPosition()
+        .timeout(const Duration(seconds: 3), onTimeout: () => null);
     if (last != null) {
       // ignore: avoid_print
       print('[Location] last known: ${last.latitude}, ${last.longitude} (accuracy: ${last.accuracy}m)');

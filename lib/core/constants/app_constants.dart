@@ -33,7 +33,7 @@ class AppConstants {
   // Background service notification ID
   static const int notifBackgroundService = 999;
 
-  // Prayer notification IDs (0-4 prayer, 10-14 reminder)
+  // Prayer notification IDs (0-4 today, 50-54 tomorrow)
   static const int notifFajr = 0;
   static const int notifDhuhr = 1;
   static const int notifAsr = 2;
@@ -44,6 +44,9 @@ class AppConstants {
   static const int notifAsrReminder = 12;
   static const int notifMaghribReminder = 13;
   static const int notifIshaReminder = 14;
+
+  // Tomorrow's prayer notification IDs (today + 50)
+  static const int notifTomorrowOffset = 50;
 
   // Reminder notification IDs (20+)
   static const int notifAdhkarMorning = 20;
@@ -92,4 +95,9 @@ class AppConstants {
   static const String keyDhikrTasbihInterval     = 'dhikr_tasbih_interval';
   static const String keyDhikrTasbihSound        = 'dhikr_tasbih_sound';
   static const String keyDhikrPostPrayer         = 'dhikr_post_prayer';
+
+  // Quran Audio
+  static const String keyAudioSelectedReciter = 'quran_audio_selected_reciter';
+  static const String keyAudioRecitersCache   = 'quran_audio_reciters_cache';
+  static const String keyAudioFullDownload    = 'quran_audio_full_download';
 }

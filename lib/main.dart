@@ -20,7 +20,6 @@ Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
   FlutterNativeSplash.preserve(widgetsBinding: binding);
-
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,

@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Network — required for release builds (debug manifest adds this automatically) -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
     <!-- Location: prayer times + qibla -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
@@ -12,12 +16,14 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- SCHEDULE_EXACT_ALARM: يحتاج موافقة صريحة من المستخدم (Android 12+) -->
+    <!-- USE_EXACT_ALARM محذوف — مخصص لتطبيقات المنبه/التقويم ويسبب رفض في Play Store -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
 
     <!-- Background service & wake lock (لضمان وصول التنبيهات حتى مع إغلاق التطبيق) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
 
@@ -48,7 +54,14 @@
             </intent-filter>
         </activity>
 
-        <!-- Boot receiver: flutter_local_notifications (reschedule on reboot) -->
+        <!-- flutter_local_notifications: هذا الـ Receiver يُنفَّذ عند موعد كل تنبيه
+             (AlarmManager يُطلِقه حتى عند إغلاق التطبيق).
+             نُصرِّح به صراحةً لضمان عدم حذفه بواسطة manifest merger في release. -->
+        <receiver
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
+            android:exported="false"/>
+
+        <!-- Boot receiver: flutter_local_notifications (إعادة جدولة التنبيهات بعد إعادة التشغيل) -->
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver"
             android:exported="true">

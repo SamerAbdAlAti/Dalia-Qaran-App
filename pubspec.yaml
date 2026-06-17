@@ -55,6 +55,7 @@ dependencies:
   flutter_native_splash: ^2.4.8
   workmanager: ^0.9.0+3
   audioplayers: ^6.7.1
+  http: ^1.2.2
 
   # File picker + path (custom notification sound)
   file_picker: ^8.1.6
@@ -115,8 +116,4 @@ flutter:
     - family: ScheherazadeNew
       fonts:
         - asset: assets/fonts/ScheherazadeNew-Regular.ttf
-          weight: 400
-    - family: AmiriQuran
-      fonts:
-        - asset: assets/fonts/AmiriQuran.ttf
           weight: 400
