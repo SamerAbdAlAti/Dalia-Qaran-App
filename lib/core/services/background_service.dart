@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:adhan/adhan.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -70,7 +71,11 @@ Future<bool> _bgIsSurahDownloaded(String identifier, int surahNum) async {
   return file.existsSync() && file.lengthSync() > 0;
 }
 
-Future<void> _bgDownloadSurah(String identifier, int surahNum) async {
+Future<void> _bgDownloadSurah(
+  String identifier,
+  int surahNum, {
+  void Function(int received, int total)? onProgress,
+}) async {
   final url = _bgSurahUrl(identifier, surahNum);
   final appDir = await getApplicationDocumentsDirectory();
   final audioDir = Directory('${appDir.path}/quran_audio/$identifier');
@@ -79,50 +84,53 @@ Future<void> _bgDownloadSurah(String identifier, int surahNum) async {
   final finalFile = File('${audioDir.path}/$fileName.mp3');
   final tempFile  = File('${audioDir.path}/$fileName.tmp');
 
-  // استئناف التحميل: احسب عدد البايتات الموجودة في الملف المؤقت
   final resumeFrom = tempFile.existsSync() ? tempFile.lengthSync() : 0;
 
   final request = http.Request('GET', Uri.parse(url));
   request.headers['User-Agent'] = 'Daliya/1.0 (Android; Quran App)';
   request.headers['Accept'] = 'audio/mpeg, audio/*, */*';
-  if (resumeFrom > 0) {
-    request.headers['Range'] = 'bytes=$resumeFrom-';
-  }
+  if (resumeFrom > 0) request.headers['Range'] = 'bytes=$resumeFrom-';
 
   final response = await request.send().timeout(const Duration(seconds: 60));
 
-  // 416 = الملف المؤقت أكبر من أو يساوي حجم الملف الفعلي على السيرفر
   if (response.statusCode == 416) {
-    // أفرغ الـ stream وتجاهله لمنع resource leak
     await response.stream.drain<void>();
     if (tempFile.existsSync()) await tempFile.delete();
     throw Exception('HTTP 416 — سيُعاد التحميل من البداية');
   }
-
   if (response.statusCode != 200 && response.statusCode != 206) {
     await response.stream.drain<void>();
     throw Exception('HTTP ${response.statusCode}');
   }
 
-  // 206 = استئناف جزئي → append | 200 = تحميل كامل → overwrite
+  // Parse total size for progress reporting
+  int totalBytes = 0;
+  int receivedBytes = resumeFrom;
+  if (response.statusCode == 206) {
+    final cr = response.headers['content-range'] ?? '';
+    final slash = cr.lastIndexOf('/');
+    if (slash != -1) totalBytes = int.tryParse(cr.substring(slash + 1)) ?? 0;
+  } else {
+    totalBytes = int.tryParse(response.headers['content-length'] ?? '') ?? 0;
+  }
+
   final writeMode = response.statusCode == 206 ? FileMode.append : FileMode.write;
   final sink = tempFile.openWrite(mode: writeMode);
   try {
     await Future(() async {
-      await for (final chunk
-          in response.stream.timeout(const Duration(seconds: 60))) {
+      await for (final chunk in response.stream.timeout(const Duration(seconds: 60))) {
         sink.add(chunk);
+        receivedBytes += chunk.length;
+        onProgress?.call(receivedBytes, totalBytes);
       }
     }).timeout(const Duration(minutes: 8));
     await sink.flush();
     await sink.close();
-    // اكتمل التحميل — نقل الملف المؤقت إلى الاسم النهائي
     if (await finalFile.exists()) await finalFile.delete();
     await tempFile.rename(finalFile.path);
   } catch (e) {
     await sink.flush();
     await sink.close();
-    // نحتفظ بالملف المؤقت لاستئناف التحميل في المحاولة التالية
     rethrow;
   }
 }
@@ -151,6 +159,12 @@ void callbackDispatcher() {
               : '';
           // ignore: avoid_print
           print('[BG-Download] downloading surah $surahNum ($surahName)');
+          // Speed + throttle state (reset per surah)
+          var lastNotifMs    = 0;
+          var lastSpeedBytes = 0;
+          var lastSpeedMs    = DateTime.now().millisecondsSinceEpoch;
+          var speedKBps      = 0.0;
+
           await NotificationService.showDownloadProgress(
             reciterName: arabicName,
             surahNum: surahNum,
@@ -159,11 +173,37 @@ void callbackDispatcher() {
           );
           bool ok = false;
           for (int attempt = 0; attempt < 3 && !ok; attempt++) {
-            if (attempt > 0) {
-              await Future.delayed(const Duration(seconds: 5));
-            }
+            if (attempt > 0) await Future.delayed(const Duration(seconds: 5));
             try {
-              await _bgDownloadSurah(identifier, surahNum);
+              await _bgDownloadSurah(
+                identifier,
+                surahNum,
+                onProgress: (received, bytesTotal) {
+                  final now = DateTime.now().millisecondsSinceEpoch;
+                  // Recalculate speed every 2s
+                  final deltaMs = now - lastSpeedMs;
+                  if (deltaMs >= 2000) {
+                    speedKBps = (received - lastSpeedBytes) * 1000.0 / (deltaMs * 1024.0);
+                    lastSpeedBytes = received;
+                    lastSpeedMs = now;
+                  }
+                  // Throttle: at most one notification update per 800ms
+                  if (now - lastNotifMs >= 800) {
+                    lastNotifMs = now;
+                    final pct = bytesTotal > 0
+                        ? ((received / bytesTotal) * 100).round()
+                        : 0;
+                    unawaited(NotificationService.showDownloadProgress(
+                      reciterName: arabicName,
+                      surahNum: surahNum,
+                      total: total,
+                      surahName: surahName,
+                      surahPercent: pct,
+                      speedKBps: speedKBps,
+                    ));
+                  }
+                },
+              );
               ok = true;
             } catch (e) {
               // ignore: avoid_print

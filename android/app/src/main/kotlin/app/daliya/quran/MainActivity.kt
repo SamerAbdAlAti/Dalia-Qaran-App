@@ -112,6 +112,27 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
+                    "scheduleDhikr" -> {
+                        val type = call.argument<String>("type")
+                        val interval = call.argument<Int>("interval_minutes") ?: 60
+                        if (type != null) {
+                            DhikrAlarmReceiver.scheduleFirst(this, type, interval)
+                            result.success(true)
+                        } else {
+                            result.error("NO_TYPE", "type is required", null)
+                        }
+                    }
+
+                    "cancelDhikr" -> {
+                        val type = call.argument<String>("type")
+                        if (type != null) {
+                            DhikrAlarmReceiver.cancelType(this, type)
+                            result.success(true)
+                        } else {
+                            result.error("NO_TYPE", "type is required", null)
+                        }
+                    }
+
                     else -> result.notImplemented()
                 }
             }

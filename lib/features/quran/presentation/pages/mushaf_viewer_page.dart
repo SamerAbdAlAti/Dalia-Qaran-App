@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -84,54 +85,113 @@ class _MushafContent extends StatefulWidget {
 
 class _MushafContentState extends State<_MushafContent> {
   PageController? _pageController;
-  bool _showControls = true;
+  bool _showControls = false;
+  bool _showPanel = true;
+  Timer? _hideControlsTimer;
   final _selectedAyah = ValueNotifier<(int, int)?>(null);
 
   void _goToPage(int page) {
     _pageController?.jumpToPage(page - 1);
   }
 
+  void _showControlsTemporarily() {
+    if (!mounted) return;
+    _hideControlsTimer?.cancel();
+    setState(() => _showControls = true);
+    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showControls = false);
+    });
+  }
+
+  // When audio advances to a new ayah on the next page, auto-flip there.
+  void _checkAndAdvancePage(BuildContext context, int surahNum, int ayahNum) {
+    final mushafCubit = context.read<MushafCubit>();
+    final ms = mushafCubit.state;
+    if (ms is! MushafReady) return;
+
+    final currentPage = ms.currentPage;
+    final currentData = mushafCubit.getPageData(currentPage);
+    final onCurrentPage = currentData?.ayahs.any(
+          (a) => a.surahId == surahNum && a.ayahNum == ayahNum,
+        ) ??
+        false;
+    if (!onCurrentPage && currentPage < _totalPages) {
+      final nextData = mushafCubit.getPageData(currentPage + 1);
+      final onNextPage = nextData?.ayahs.any(
+            (a) => a.surahId == surahNum && a.ayahNum == ayahNum,
+          ) ??
+          false;
+      if (onNextPage) {
+        _pageController?.animateToPage(
+          currentPage, // index = page - 1, next page index = currentPage
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<MushafCubit, MushafState>(
-      listenWhen: (prev, curr) =>
-          prev is MushafLoading && curr is MushafReady,
-      listener: (context, state) {
-        if (state is MushafReady) {
-          int startPage = state.currentPage;
-          if (widget.surahId != null) {
-            startPage = state.surahFirstPages[widget.surahId!] ?? startPage;
-            context.read<MushafCubit>().setPage(startPage);
+    return BlocListener<QuranAudioCubit, QuranAudioState>(
+      listener: (context, audioState) {
+        if (audioState is QuranAudioPlaying) {
+          if (_showPanel) setState(() => _showPanel = false);
+          if (!audioState.isSurah && audioState.ayahNum != null) {
+            _checkAndAdvancePage(context, audioState.surahNum, audioState.ayahNum!);
           }
-          setState(() {
-            _pageController = PageController(initialPage: startPage - 1);
-          });
+        } else if (audioState is QuranAudioInitial ||
+            audioState is QuranAudioRecitersLoaded ||
+            audioState is QuranAudioError) {
+          if (!_showPanel) setState(() => _showPanel = true);
         }
       },
-      builder: (context, state) {
-        if (state is MushafLoading || state is MushafInitial) {
+      child: BlocConsumer<MushafCubit, MushafState>(
+        listenWhen: (prev, curr) =>
+            prev is MushafLoading && curr is MushafReady,
+        listener: (context, state) {
+          if (state is MushafReady) {
+            int startPage = state.currentPage;
+            if (widget.surahId != null) {
+              startPage = state.surahFirstPages[widget.surahId!] ?? startPage;
+              context.read<MushafCubit>().setPage(startPage);
+            }
+            setState(() {
+              _pageController = PageController(initialPage: startPage - 1);
+            });
+          }
+        },
+        builder: (context, state) {
+          if (state is MushafLoading || state is MushafInitial) {
+            return _LoadingView();
+          }
+          if (state is MushafError) {
+            return _ErrorView(message: state.message);
+          }
+          if (state is MushafReady && _pageController != null) {
+            return _ReaderView(
+              state: state,
+              controller: _pageController!,
+              showControls: _showControls,
+              showPanel: _showPanel,
+              onTap: _showControlsTemporarily,
+              onShowPanel: () {
+                setState(() => _showPanel = true);
+                _showControlsTemporarily();
+              },
+              onGoToPage: _goToPage,
+              selectedAyah: _selectedAyah,
+            );
+          }
           return _LoadingView();
-        }
-        if (state is MushafError) {
-          return _ErrorView(message: state.message);
-        }
-        if (state is MushafReady && _pageController != null) {
-          return _ReaderView(
-            state: state,
-            controller: _pageController!,
-            showControls: _showControls,
-            onTap: () => setState(() => _showControls = !_showControls),
-            onGoToPage: _goToPage,
-            selectedAyah: _selectedAyah,
-          );
-        }
-        return _LoadingView();
-      },
+        },
+      ),
     );
   }
 
   @override
   void dispose() {
+    _hideControlsTimer?.cancel();
     _pageController?.dispose();
     _selectedAyah.dispose();
     super.dispose();
@@ -144,7 +204,9 @@ class _ReaderView extends StatelessWidget {
   final MushafReady state;
   final PageController controller;
   final bool showControls;
+  final bool showPanel;
   final VoidCallback onTap;
+  final VoidCallback onShowPanel;
   final void Function(int page) onGoToPage;
   final ValueNotifier<(int, int)?> selectedAyah;
 
@@ -152,10 +214,13 @@ class _ReaderView extends StatelessWidget {
     required this.state,
     required this.controller,
     required this.showControls,
+    required this.showPanel,
     required this.onTap,
+    required this.onShowPanel,
     required this.onGoToPage,
     required this.selectedAyah,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -191,6 +256,7 @@ class _ReaderView extends StatelessWidget {
                         state: state,
                         isDark: isDark,
                         selectedAyah: selectedAyah,
+                        bottomInset: showControls ? 48.h : 0,
                       );
                     },
                   ),
@@ -198,12 +264,18 @@ class _ReaderView extends StatelessWidget {
                     _TopBar(state: state, isDark: isDark),
                     _BottomBar(state: state, isDark: isDark),
                   ],
+                  // Swipe-down from top → show controls
+                  _SwipeDownHandle(onSwipeDown: onTap),
+                  if (!showPanel)
+                    _SwipeUpHandle(isDark: isDark, onSwipeUp: onShowPanel),
                 ],
               ),
             ),
           ),
-          _AyahBar(mushafState: state),
-          AudioPlayerSheet(surahNames: surahNames),
+          if (showPanel) ...[
+            _AyahBar(mushafState: state),
+            AudioPlayerSheet(surahNames: surahNames),
+          ],
         ],
       ),
     );
@@ -935,6 +1007,68 @@ class _BottomBar extends StatelessWidget {
   }
 }
 
+// ─── Swipe Handles ───
+
+class _SwipeDownHandle extends StatelessWidget {
+  final VoidCallback onSwipeDown;
+  const _SwipeDownHandle({required this.onSwipeDown});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onVerticalDragEnd: (details) {
+          if ((details.primaryVelocity ?? 0) > 300) onSwipeDown();
+        },
+        child: SafeArea(child: SizedBox(height: 32.h)),
+      ),
+    );
+  }
+}
+
+
+
+class _SwipeUpHandle extends StatelessWidget {
+  final bool isDark;
+  final VoidCallback onSwipeUp;
+
+  const _SwipeUpHandle({required this.isDark, required this.onSwipeUp});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onVerticalDragEnd: (details) {
+          if ((details.primaryVelocity ?? 0) < -300) onSwipeUp();
+        },
+        child: SafeArea(
+          child: SizedBox(
+            height: 28.h,
+            child: Center(
+              child: Container(
+                width: 36.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.white : Colors.black).withAlpha(80),
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Mushaf Page Widget ───
 
 class _MushafPageWidget extends StatelessWidget {
@@ -942,12 +1076,14 @@ class _MushafPageWidget extends StatelessWidget {
   final MushafReady state;
   final bool isDark;
   final ValueNotifier<(int, int)?> selectedAyah;
+  final double bottomInset;
 
   const _MushafPageWidget({
     required this.pageNumber,
     required this.state,
     required this.isDark,
     required this.selectedAyah,
+    this.bottomInset = 0,
   });
 
   @override
@@ -985,13 +1121,16 @@ class _MushafPageWidget extends StatelessWidget {
 
         return ColoredBox(
           color: pageBg,
-          child: QcfPage(
-            pageNumber: pageNumber,
-            theme: qcfTheme,
-            onTap: (surahNumber, verseNumber) =>
-                _onVerseTap(ctx, surahNumber, verseNumber),
-            onLongPress: (surahNumber, verseNumber) =>
-                _onVerseLongPress(ctx, surahNumber, verseNumber),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomInset),
+            child: QcfPage(
+              pageNumber: pageNumber,
+              theme: qcfTheme,
+              onTap: (surahNumber, verseNumber) =>
+                  _onVerseTap(ctx, surahNumber, verseNumber),
+              onLongPress: (surahNumber, verseNumber) =>
+                  _onVerseLongPress(ctx, surahNumber, verseNumber),
+            ),
           ),
         );
       },

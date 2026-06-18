@@ -63,11 +63,10 @@ class AppConstants {
   static const int notifDhikrTasbih = 32;
   static const int notifDhikrPostPrayer = 33;
 
-  // Dhikr interval slot ranges (100 slots each — supports custom intervals down to ~10 min)
-  static const int notifDhikrIstighfarBase = 200; // 200-299
-  static const int notifDhikrSalawatBase   = 300; // 300-399
-  static const int notifDhikrTasbihBase    = 400; // 400-499
-  static const int notifDhikrSlotCount     = 100;
+  // Dhikr FIXED notification IDs — native DhikrAlarmReceiver uses these (same ID = replaces previous)
+  static const int notifDhikrIstighfarBase = 200;
+  static const int notifDhikrSalawatBase   = 300;
+  static const int notifDhikrTasbihBase    = 400;
 
   // Reminder SharedPreferences keys
   static const String keyReminderAdhkarMorning = 'reminder_adhkar_morning';

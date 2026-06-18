@@ -756,11 +756,27 @@ class NotificationService {
     required int surahNum,
     required int total,
     String surahName = '',
+    int surahPercent = 0,   // 0–100, progress within current surah
+    double speedKBps = 0,   // download speed in KB/s
   }) async {
-    final percent = ((surahNum / total) * 100).round();
-    final body = surahName.isNotEmpty
-        ? '$surahName  ($surahNum/$total) — $percent٪'
-        : 'سورة $surahNum من $total — $percent٪';
+    final overallPercent = ((surahNum / total) * 100).round();
+    final surahLabel = surahName.isNotEmpty ? surahName : 'سورة $surahNum';
+
+    final String speedText;
+    if (speedKBps >= 1024) {
+      speedText = '${(speedKBps / 1024).toStringAsFixed(1)} MB/s';
+    } else if (speedKBps >= 1) {
+      speedText = '${speedKBps.round()} KB/s';
+    } else {
+      speedText = '';
+    }
+
+    final body = speedText.isNotEmpty
+        ? '$surahLabel | $speedText'
+        : '$surahLabel ($surahNum/$total) — $overallPercent٪';
+
+    final displayProgress = surahPercent > 0 ? surahPercent : overallPercent;
+
     try {
       await _plugin.show(
         _downloadNotifId,
@@ -774,14 +790,14 @@ class NotificationService {
             priority: Priority.low,
             onlyAlertOnce: true,
             showProgress: true,
-            maxProgress: total,
-            progress: surahNum,
+            maxProgress: 100,
+            progress: displayProgress,
             ongoing: true,
             autoCancel: false,
             playSound: false,
             enableVibration: false,
             icon: 'ic_notification',
-            subText: 'داليا',
+            subText: '($surahNum/$total) — $overallPercent٪',
           ),
         ),
       );

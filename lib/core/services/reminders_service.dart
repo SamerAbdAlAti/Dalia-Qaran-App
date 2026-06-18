@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../constants/app_constants.dart';
 
@@ -250,188 +251,63 @@ class RemindersService {
     }
   }
 
-  // ─── Dhikr interval scheduling ───
+  // ─── Dhikr scheduling (native AlarmManager — one alarm per type, FIXED notification ID) ───
 
-  static Future<void> _ensureDhikrChannel(String channelId, String channelName, String soundId) async {
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    AndroidNotificationSound? sound;
-    if (soundId != 'default' && soundId.isNotEmpty) {
-      sound = RawResourceAndroidNotificationSound(soundId);
-    }
-    await android?.createNotificationChannel(AndroidNotificationChannel(
-      '${channelId}_$soundId',
-      channelName,
-      importance: Importance.high,
-      playSound: true,
-      sound: sound,
-    ));
-  }
+  // One-time migration: cancels old slot-based flutter_local_notifications alarms (IDs 200–499)
+  // and activates the new native DhikrAlarmReceiver for all currently-enabled types.
+  // Safe to call on every startup — noop after first run.
+  static Future<void> migrateToNativeDhikr() async {
+    final sharedPrefs = await SharedPreferences.getInstance();
+    if (sharedPrefs.getBool('_dhikr_native_v2') == true) return;
 
-  static AndroidNotificationDetails _dhikrAndroidDetails(
-      ReminderDef r, String soundId) {
-    AndroidNotificationSound? sound;
-    if (soundId != 'default' && soundId.isNotEmpty) {
-      sound = RawResourceAndroidNotificationSound(soundId);
-    }
-    return AndroidNotificationDetails(
-      '${r.channelId}_$soundId',
-      r.channelNameAr,
-      importance: Importance.high,
-      priority: Priority.high,
-      enableVibration: true,
-      playSound: true,
-      sound: sound,
-      color: const Color(0xFF1B5E20),
-      icon: 'ic_notification',
-      subText: 'داليا',
-      ticker: r.titleAr,
-      autoCancel: true,
-      groupKey: 'daliya_dhikr_${r.channelId}',
-      setAsGroupSummary: false,
-      styleInformation: BigTextStyleInformation(
-        r.bodyAr,
-        contentTitle: r.titleAr,
-        summaryText: 'داليا • تذكيرات الذكر',
-        htmlFormatContent: false,
-        htmlFormatContentTitle: false,
-      ),
+    // Cancel ALL old slot-based alarms in parallel (pipelining platform channel calls)
+    await Future.wait([
+      for (int i = 30; i < 500; i++) _plugin.cancel(i).catchError((_) {}),
+    ]);
+    await _clearNotificationCache();
+
+    // Start native alarms for currently-enabled types
+    await _dhikrNative('istighfar',
+      enabled: sharedPrefs.getBool(AppConstants.keyDhikrIstighfar) ?? false,
+      interval: sharedPrefs.getInt(AppConstants.keyDhikrIstighfarInterval) ?? 60,
     );
-  }
+    await _dhikrNative('salawat',
+      enabled: sharedPrefs.getBool(AppConstants.keyDhikrSalawat) ?? false,
+      interval: sharedPrefs.getInt(AppConstants.keyDhikrSalawatInterval) ?? 60,
+    );
+    await _dhikrNative('tasbih',
+      enabled: sharedPrefs.getBool(AppConstants.keyDhikrTasbih) ?? false,
+      interval: sharedPrefs.getInt(AppConstants.keyDhikrTasbihInterval) ?? 60,
+    );
 
-  // intervalMinutes: 30/60/120/180/360 = interval; 1440 = once daily at 9 AM
-  // Window: 7:00 AM – 9:30 PM (لا نزعج المستخدم بعد ذلك)
-  // offsetSeconds: stagger between dhikr types (0 / 15 / 30) so they don't all fire at once
-  static Future<void> _scheduleDhikrInterval({
-    required ReminderDef reminder,
-    required int intervalMinutes,
-    required String soundId,
-    required int idBase,
-    int offsetSeconds = 0,
-    AndroidScheduleMode scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle,
-  }) async {
-    await _ensureDhikrChannel(reminder.channelId, reminder.channelNameAr, soundId);
-    final details = NotificationDetails(android: _dhikrAndroidDetails(reminder, soundId));
-
-    const startMin = 7 * 60;   // 7:00 AM
-    const endMin   = 21 * 60 + 30; // 9:30 PM
-
-    final now = tz.TZDateTime.now(tz.local);
-    final nowMin = now.hour * 60 + now.minute;
-    // Start from next minute when inside window so no slot falls in the past.
-    final slotStart = (nowMin >= startMin && nowMin < endMin) ? nowMin + 1 : startMin;
-
-    final List<int> slots = intervalMinutes >= 1440
-        ? [9 * 60] // مرة يومياً: 9 صباحاً
-        : [
-            for (int m = slotStart; m <= endMin; m += intervalMinutes) m,
-          ];
-
-    for (int i = 0; i < slots.length && i < AppConstants.notifDhikrSlotCount; i++) {
-      final hour   = slots[i] ~/ 60;
-      final minute = slots[i] % 60;
-      var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute, 0)
-          .add(Duration(seconds: offsetSeconds));
-      if (scheduled.isBefore(now)) {
-        scheduled = scheduled.add(const Duration(days: 1));
-      }
-      try {
-        await _plugin.zonedSchedule(
-          idBase + i,
-          reminder.titleAr,
-          reminder.bodyAr,
-          scheduled,
-          details,
-          androidScheduleMode: scheduleMode,
-          matchDateTimeComponents: DateTimeComponents.time,
-        );
-      } catch (_) {
-        try {
-          await _clearNotificationCache();
-          await _plugin.zonedSchedule(
-            idBase + i,
-            reminder.titleAr,
-            reminder.bodyAr,
-            scheduled,
-            details,
-            androidScheduleMode: scheduleMode,
-            matchDateTimeComponents: DateTimeComponents.time,
-          );
-        } catch (_) {}
-      }
-    }
-  }
-
-  static Future<void> _cancelDhikrSlots(int idBase) async {
-    for (int i = 0; i < AppConstants.notifDhikrSlotCount; i++) {
-      try { await _plugin.cancel(idBase + i); } catch (_) {}
-    }
+    await sharedPrefs.setBool('_dhikr_native_v2', true);
   }
 
   static Future<void> scheduleDhikrAll({
     required Map<String, dynamic> prefs,
   }) async {
-    // ─── clear corrupted cache first (prevents "Missing type parameter" crash) ───
-    await _clearNotificationCache();
-    final mode = await _resolveMode();
+    await _dhikrNative('istighfar',
+      enabled: prefs[AppConstants.keyDhikrIstighfar] == true,
+      interval: (prefs[AppConstants.keyDhikrIstighfarInterval] as int?) ?? 60,
+    );
+    await _dhikrNative('salawat',
+      enabled: prefs[AppConstants.keyDhikrSalawat] == true,
+      interval: (prefs[AppConstants.keyDhikrSalawatInterval] as int?) ?? 60,
+    );
+    await _dhikrNative('tasbih',
+      enabled: prefs[AppConstants.keyDhikrTasbih] == true,
+      interval: (prefs[AppConstants.keyDhikrTasbihInterval] as int?) ?? 60,
+    );
+  }
 
-    // ─── cancel legacy single-shot IDs (migration) ───
-    for (final id in [
-      AppConstants.notifDhikrIstighfar,
-      AppConstants.notifDhikrSalawat,
-      AppConstants.notifDhikrTasbih,
-      AppConstants.notifDhikrIstighfar + 100,
-      AppConstants.notifDhikrSalawat + 100,
-      AppConstants.notifDhikrTasbih + 100,
-      AppConstants.notifDhikrPostPrayer,
-    ]) {
-      try { await _plugin.cancel(id); } catch (_) {}
-    }
-
-    // ─── استغفار (offset=0) ───
-    await _cancelDhikrSlots(AppConstants.notifDhikrIstighfarBase);
-    if (prefs[AppConstants.keyDhikrIstighfar] == true) {
-      final interval = (prefs[AppConstants.keyDhikrIstighfarInterval] as int?) ?? 60;
-      final sound = (prefs[AppConstants.keyDhikrIstighfarSound] as String?) ?? 'dhikr_istighfar';
-      final r = _dhikrReminders.firstWhere((d) => d.id == AppConstants.notifDhikrIstighfar);
-      try {
-        await _scheduleDhikrInterval(
-          reminder: r, intervalMinutes: interval, soundId: sound,
-          idBase: AppConstants.notifDhikrIstighfarBase, scheduleMode: mode,
-          offsetSeconds: 0,
-        );
-      } catch (_) {}
-    }
-
-    // ─── صلاة على النبي ﷺ (offset=1) ───
-    await _cancelDhikrSlots(AppConstants.notifDhikrSalawatBase);
-    if (prefs[AppConstants.keyDhikrSalawat] == true) {
-      final interval = (prefs[AppConstants.keyDhikrSalawatInterval] as int?) ?? 60;
-      final sound = (prefs[AppConstants.keyDhikrSalawatSound] as String?) ?? 'dhikr_salawat';
-      final r = _dhikrReminders.firstWhere((d) => d.id == AppConstants.notifDhikrSalawat);
-      try {
-        await _scheduleDhikrInterval(
-          reminder: r, intervalMinutes: interval, soundId: sound,
-          idBase: AppConstants.notifDhikrSalawatBase, scheduleMode: mode,
-          offsetSeconds: 15,
-        );
-      } catch (_) {}
-    }
-
-    // ─── تسبيح (offset=2) ───
-    await _cancelDhikrSlots(AppConstants.notifDhikrTasbihBase);
-    if (prefs[AppConstants.keyDhikrTasbih] == true) {
-      final interval = (prefs[AppConstants.keyDhikrTasbihInterval] as int?) ?? 60;
-      final sound = (prefs[AppConstants.keyDhikrTasbihSound] as String?) ?? 'dhikr_tasbih';
-      final r = _dhikrReminders.firstWhere((d) => d.id == AppConstants.notifDhikrTasbih);
-      try {
-        await _scheduleDhikrInterval(
-          reminder: r, intervalMinutes: interval, soundId: sound,
-          idBase: AppConstants.notifDhikrTasbihBase, scheduleMode: mode,
-          offsetSeconds: 30,
-        );
-      } catch (_) {}
-    }
+  static Future<void> _dhikrNative(String type, {required bool enabled, required int interval}) async {
+    try {
+      if (enabled) {
+        await _platformChannel.invokeMethod('scheduleDhikr', {'type': type, 'interval_minutes': interval});
+      } else {
+        await _platformChannel.invokeMethod('cancelDhikr', {'type': type});
+      }
+    } catch (_) {}
   }
 
   static List<ReminderDef> get dhikrDefs => _dhikrReminders;
@@ -440,13 +316,30 @@ class RemindersService {
     required ReminderDef reminder,
     required String soundId,
   }) async {
-    await _ensureDhikrChannel(reminder.channelId, reminder.channelNameAr, soundId);
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    AndroidNotificationSound? sound;
+    if (soundId != 'default' && soundId.isNotEmpty) {
+      sound = RawResourceAndroidNotificationSound(soundId);
+    }
+    final channelId = '${reminder.channelId}_$soundId';
+    await android?.createNotificationChannel(AndroidNotificationChannel(
+      channelId, reminder.channelNameAr,
+      importance: Importance.high, playSound: true, sound: sound,
+    ));
     try {
       await _plugin.show(
         reminder.id,
         reminder.titleAr,
         reminder.bodyAr,
-        NotificationDetails(android: _dhikrAndroidDetails(reminder, soundId)),
+        NotificationDetails(android: AndroidNotificationDetails(
+          channelId, reminder.channelNameAr,
+          importance: Importance.high, priority: Priority.high,
+          enableVibration: true, playSound: true, sound: sound,
+          color: const Color(0xFF1B5E20), icon: 'ic_notification',
+          subText: 'داليا', autoCancel: true,
+          styleInformation: BigTextStyleInformation(reminder.bodyAr, contentTitle: reminder.titleAr),
+        )),
       );
     } catch (_) {}
   }

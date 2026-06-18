@@ -141,21 +141,6 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _toggleDhikr(String key, bool value) async {
-    if (!value) {
-      // Cancel pending alarms and clear shown notifications immediately
-      final base = switch (key) {
-        AppConstants.keyDhikrIstighfar => AppConstants.notifDhikrIstighfarBase,
-        AppConstants.keyDhikrSalawat   => AppConstants.notifDhikrSalawatBase,
-        AppConstants.keyDhikrTasbih    => AppConstants.notifDhikrTasbihBase,
-        _ => -1,
-      };
-      if (base >= 0) {
-        final plugin = FlutterLocalNotificationsPlugin();
-        for (int i = 0; i < AppConstants.notifDhikrSlotCount; i++) {
-          try { await plugin.cancel(base + i); } catch (_) {}
-        }
-      }
-    }
     setState(() {
       switch (key) {
         case AppConstants.keyDhikrIstighfar:  _dhikrIstighfar = value;

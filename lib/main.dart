@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'core/di/injection_container.dart';
 import 'core/services/background_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/reminders_service.dart';
 import 'core/services/widget_service.dart';
 import 'core/state/font_scale_cubit.dart';
 import 'core/theme/app_theme.dart';
@@ -30,12 +31,16 @@ Future<void> main() async {
   //   systemNavigationBarColor: Colors.white,
   //   systemNavigationBarIconBrightness: Brightness.dark,
   // ));
-  await initObjectboxStore();
+  // Run independent init tasks in parallel to reduce cold-start time.
+  // initDependencies() needs ObjectBox, so it runs after the parallel phase.
+  await Future.wait([
+    initObjectboxStore(),
+    NotificationService.init(),
+    BackgroundService.init().then((_) => BackgroundService.scheduleDailyReschedule()),
+    WidgetService.init(),
+  ]);
   await initDependencies();
-  await NotificationService.init();
-  await BackgroundService.init();
-  await BackgroundService.scheduleDailyReschedule();
-  await WidgetService.init();
+  unawaited(RemindersService.migrateToNativeDhikr());
   unawaited(WidgetService.updateTodayAyah());
 
   runApp(const QuranApp());
