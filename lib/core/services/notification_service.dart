@@ -256,16 +256,18 @@ class NotificationService {
       final enabled = enabledPrayers[name] ?? true;
       if (!enabled || time == null) continue;
 
-      await schedulePrayer(
-        id: id,
-        prayerName: name,
-        prayerTime: time,
-        soundId: soundId,
-        offset: offset,
-        vibrate: vibrate,
-        customSoundUri: customSoundUri,
-        scheduleMode: scheduleMode,
-      );
+      try {
+        await schedulePrayer(
+          id: id,
+          prayerName: name,
+          prayerTime: time,
+          soundId: soundId,
+          offset: offset,
+          vibrate: vibrate,
+          customSoundUri: customSoundUri,
+          scheduleMode: scheduleMode,
+        );
+      } catch (_) {}
     }
   }
 
@@ -330,7 +332,7 @@ class NotificationService {
         playSound: true,
         category: AndroidNotificationCategory.alarm,
         color: const Color(0xFF1B5E20),
-        icon: '@drawable/ic_notification',
+        icon: 'ic_notification',
         subText: 'داليا',
         ticker: title,
         styleInformation: BigTextStyleInformation(
@@ -348,17 +350,15 @@ class NotificationService {
       await _plugin.zonedSchedule(
         id, title, body, scheduledTime, details,
         androidScheduleMode: scheduleMode,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
       );
     } catch (_) {
-      await _clearNotificationCache();
-      await _plugin.zonedSchedule(
-        id, title, body, scheduledTime, details,
-        androidScheduleMode: scheduleMode,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
+      try {
+        await _clearNotificationCache();
+        await _plugin.zonedSchedule(
+          id, title, body, scheduledTime, details,
+          androidScheduleMode: scheduleMode,
+        );
+      } catch (_) {}
     }
   }
 
@@ -455,8 +455,6 @@ class NotificationService {
           fireAt,
           details,
           androidScheduleMode: AndroidScheduleMode.alarmClock,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
         );
         firstFireAt ??= fireAt;
         scheduled++;
@@ -607,7 +605,7 @@ class NotificationService {
             playSound: true,
             category: AndroidNotificationCategory.alarm,
             color: const Color(0xFF1B5E20),
-            icon: '@drawable/ic_notification',
+            icon: 'ic_notification',
             subText: 'داليا',
             ticker: title,
             styleInformation: BigTextStyleInformation(
@@ -648,7 +646,7 @@ class NotificationService {
             enableVibration: vibrate,
             playSound: true,
             color: const Color(0xFFF9A825),
-            icon: '@drawable/ic_notification',
+            icon: 'ic_notification',
             subText: 'داليا',
             ticker: title,
             styleInformation: BigTextStyleInformation(
@@ -696,7 +694,7 @@ class NotificationService {
           showWhen: false,
           playSound: false,
           enableVibration: false,
-          icon: '@drawable/ic_notification',
+          icon: 'ic_notification',
         ),
       ),
     );
@@ -782,7 +780,7 @@ class NotificationService {
             autoCancel: false,
             playSound: false,
             enableVibration: false,
-            icon: '@drawable/ic_notification',
+            icon: 'ic_notification',
             subText: 'داليا',
           ),
         ),
@@ -817,7 +815,7 @@ class NotificationService {
             priority: Priority.defaultPriority,
             playSound: false,
             enableVibration: false,
-            icon: '@drawable/ic_notification',
+            icon: 'ic_notification',
             subText: 'داليا',
             autoCancel: true,
           ),

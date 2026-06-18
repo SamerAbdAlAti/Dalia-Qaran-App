@@ -16,6 +16,7 @@ import '../../../../core/services/reminders_service.dart';
 import '../../../../core/state/font_scale_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/theme_cubit.dart';
+import '../../../home/domain/entities/prayer_times_entity.dart';
 import '../../../home/presentation/cubit/home_cubit.dart';
 import '../../../home/presentation/pages/home_page.dart' show showCityPicker;
 import '../../../quran_audio/domain/entities/reciter_entity.dart';
@@ -43,8 +44,6 @@ class _SettingsPageState extends State<SettingsPage> {
   // ─── Reminder state ───
   late bool _remAdhkarMorning, _remAdhkarEvening, _remFajrSunnah,
       _remQiyam, _remDuha, _remQuran, _remSalahAnnabi;
-  late String _remAdhkarMorningTime, _remAdhkarEveningTime,
-      _remDuhaTime, _remQuranTime, _remSalahAnnabiTime;
   late int _remFajrSunnahMin;
 
   // ─── Dhikr reminder state ───
@@ -72,18 +71,13 @@ class _SettingsPageState extends State<SettingsPage> {
       _vibrate = p.getBool(AppConstants.keyNotifVibrate) ?? true;
       _backgroundMode = p.getBool(AppConstants.keyBackgroundMode) ?? false;
       _remAdhkarMorning = p.getBool(AppConstants.keyReminderAdhkarMorning) ?? false;
-      _remAdhkarMorningTime = p.getString(AppConstants.keyReminderAdhkarMorningTime) ?? '06:00';
       _remAdhkarEvening = p.getBool(AppConstants.keyReminderAdhkarEvening) ?? false;
-      _remAdhkarEveningTime = p.getString(AppConstants.keyReminderAdhkarEveningTime) ?? '16:00';
       _remFajrSunnah = p.getBool(AppConstants.keyReminderFajrSunnah) ?? false;
       _remFajrSunnahMin = p.getInt(AppConstants.keyReminderFajrSunnahMin) ?? 20;
       _remQiyam = p.getBool(AppConstants.keyReminderQiyam) ?? false;
       _remDuha = p.getBool(AppConstants.keyReminderDuha) ?? false;
-      _remDuhaTime = p.getString(AppConstants.keyReminderDuhaTime) ?? '09:00';
       _remQuran = p.getBool(AppConstants.keyReminderQuran) ?? false;
-      _remQuranTime = p.getString(AppConstants.keyReminderQuranTime) ?? '20:00';
       _remSalahAnnabi = p.getBool(AppConstants.keyReminderSalahAnnabi) ?? false;
-      _remSalahAnnabiTime = p.getString(AppConstants.keyReminderSalahAnnabiTime) ?? '12:00';
 
       _dhikrIstighfar         = p.getBool(AppConstants.keyDhikrIstighfar) ?? false;
       _dhikrIstighfarInterval = p.getInt(AppConstants.keyDhikrIstighfarInterval) ?? 60;
@@ -100,31 +94,33 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _scheduleReminders() async {
     final p = sl<SharedPreferences>();
-    // Grab prayer times from HomeCubit if available
-    DateTime? fajr, isha;
+    DateTime? fajr, sunrise, dhuhr, asr, maghrib, isha;
     final homeState = context.read<HomeCubit>().state;
     if (homeState is HomeLoaded) {
-      fajr = homeState.prayerTimes.fajr;
-      isha = homeState.prayerTimes.isha;
+      fajr    = homeState.prayerTimes.fajr;
+      sunrise = homeState.prayerTimes.sunrise;
+      dhuhr   = homeState.prayerTimes.dhuhr;
+      asr     = homeState.prayerTimes.asr;
+      maghrib = homeState.prayerTimes.maghrib;
+      isha    = homeState.prayerTimes.isha;
     }
     await RemindersService.scheduleAll(
       prefs: {
         AppConstants.keyReminderAdhkarMorning: p.getBool(AppConstants.keyReminderAdhkarMorning) ?? false,
-        AppConstants.keyReminderAdhkarMorningTime: p.getString(AppConstants.keyReminderAdhkarMorningTime) ?? '06:00',
         AppConstants.keyReminderAdhkarEvening: p.getBool(AppConstants.keyReminderAdhkarEvening) ?? false,
-        AppConstants.keyReminderAdhkarEveningTime: p.getString(AppConstants.keyReminderAdhkarEveningTime) ?? '16:00',
-        AppConstants.keyReminderFajrSunnah: p.getBool(AppConstants.keyReminderFajrSunnah) ?? false,
+        AppConstants.keyReminderFajrSunnah:    p.getBool(AppConstants.keyReminderFajrSunnah) ?? false,
         AppConstants.keyReminderFajrSunnahMin: p.getInt(AppConstants.keyReminderFajrSunnahMin) ?? 20,
-        AppConstants.keyReminderQiyam: p.getBool(AppConstants.keyReminderQiyam) ?? false,
-        AppConstants.keyReminderDuha: p.getBool(AppConstants.keyReminderDuha) ?? false,
-        AppConstants.keyReminderDuhaTime: p.getString(AppConstants.keyReminderDuhaTime) ?? '09:00',
-        AppConstants.keyReminderQuran: p.getBool(AppConstants.keyReminderQuran) ?? false,
-        AppConstants.keyReminderQuranTime: p.getString(AppConstants.keyReminderQuranTime) ?? '20:00',
-        AppConstants.keyReminderSalahAnnabi: p.getBool(AppConstants.keyReminderSalahAnnabi) ?? false,
-        AppConstants.keyReminderSalahAnnabiTime: p.getString(AppConstants.keyReminderSalahAnnabiTime) ?? '12:00',
+        AppConstants.keyReminderQiyam:          p.getBool(AppConstants.keyReminderQiyam) ?? false,
+        AppConstants.keyReminderDuha:          p.getBool(AppConstants.keyReminderDuha) ?? false,
+        AppConstants.keyReminderQuran:         p.getBool(AppConstants.keyReminderQuran) ?? false,
+        AppConstants.keyReminderSalahAnnabi:   p.getBool(AppConstants.keyReminderSalahAnnabi) ?? false,
       },
-      fajrTime: fajr,
-      ishaTime: isha,
+      fajrTime:    fajr,
+      sunriseTime: sunrise,
+      dhuhrTime:   dhuhr,
+      asrTime:     asr,
+      maghribTime: maghrib,
+      ishaTime:    isha,
     );
   }
 
@@ -145,6 +141,21 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _toggleDhikr(String key, bool value) async {
+    if (!value) {
+      // Cancel pending alarms and clear shown notifications immediately
+      final base = switch (key) {
+        AppConstants.keyDhikrIstighfar => AppConstants.notifDhikrIstighfarBase,
+        AppConstants.keyDhikrSalawat   => AppConstants.notifDhikrSalawatBase,
+        AppConstants.keyDhikrTasbih    => AppConstants.notifDhikrTasbihBase,
+        _ => -1,
+      };
+      if (base >= 0) {
+        final plugin = FlutterLocalNotificationsPlugin();
+        for (int i = 0; i < AppConstants.notifDhikrSlotCount; i++) {
+          try { await plugin.cancel(base + i); } catch (_) {}
+        }
+      }
+    }
     setState(() {
       switch (key) {
         case AppConstants.keyDhikrIstighfar:  _dhikrIstighfar = value;
@@ -161,6 +172,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final picked = await showModalBottomSheet<int>(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (_) => _DhikrIntervalSheet(currentMinutes: current),
     );
     if (picked == null || !mounted) return;
@@ -211,7 +223,7 @@ class _SettingsPageState extends State<SettingsPage> {
     180  => 'كل ٣ ساعات',
     360  => 'كل ٦ ساعات',
     1440 => 'مرة يومياً',
-    _    => 'كل ساعة',
+    _    => 'كل $minutes دقيقة',
   };
 
   Future<void> _toggleReminder(String key, bool value, {String? stateField}) async {
@@ -230,36 +242,7 @@ class _SettingsPageState extends State<SettingsPage> {
     await _scheduleReminders();
   }
 
-  Future<void> _pickReminderTime(String timeKey, String currentTime) async {
-    final parts = currentTime.split(':');
-    final initial = TimeOfDay(
-      hour: int.tryParse(parts[0]) ?? 6,
-      minute: int.tryParse(parts[1]) ?? 0,
-    );
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initial,
-      builder: (ctx, child) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: child!,
-      ),
-    );
-    if (picked == null || !mounted) return;
-    final formatted = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
-    setState(() {
-      switch (timeKey) {
-        case AppConstants.keyReminderAdhkarMorningTime:  _remAdhkarMorningTime = formatted;
-        case AppConstants.keyReminderAdhkarEveningTime:  _remAdhkarEveningTime = formatted;
-        case AppConstants.keyReminderDuhaTime:            _remDuhaTime = formatted;
-        case AppConstants.keyReminderQuranTime:           _remQuranTime = formatted;
-        case AppConstants.keyReminderSalahAnnabiTime:    _remSalahAnnabiTime = formatted;
-      }
-    });
-    await _savePref(timeKey, formatted);
-    await _scheduleReminders();
-  }
-
-  Future<void> _checkPermissions() async {
+Future<void> _checkPermissions() async {
     final has = await NotificationService.checkExactAlarmPermission();
     final battOpt = await PlatformService.isBatteryOptimizationIgnored();
     if (mounted) {
@@ -444,27 +427,33 @@ class _SettingsPageState extends State<SettingsPage> {
 
                   // ─── التذكيرات اليومية ───
                   _SectionTitle(title: 'التذكيرات اليومية', colors: colors),
-                  _RemindersCard(
-                    colors: colors,
-                    remAdhkarMorning: _remAdhkarMorning,
-                    remAdhkarMorningTime: _remAdhkarMorningTime,
-                    remAdhkarEvening: _remAdhkarEvening,
-                    remAdhkarEveningTime: _remAdhkarEveningTime,
-                    remFajrSunnah: _remFajrSunnah,
-                    remFajrSunnahMin: _remFajrSunnahMin,
-                    remQiyam: _remQiyam,
-                    remDuha: _remDuha,
-                    remDuhaTime: _remDuhaTime,
-                    remQuran: _remQuran,
-                    remQuranTime: _remQuranTime,
-                    remSalahAnnabi: _remSalahAnnabi,
-                    remSalahAnnabiTime: _remSalahAnnabiTime,
-                    onToggle: _toggleReminder,
-                    onPickTime: _pickReminderTime,
-                    onPickFajrSunnahMin: (min) async {
-                      setState(() => _remFajrSunnahMin = min);
-                      await _savePref(AppConstants.keyReminderFajrSunnahMin, min);
-                      await _scheduleReminders();
+                  BlocBuilder<HomeCubit, HomeState>(
+                    buildWhen: (p, c) =>
+                        (p is HomeLoaded) != (c is HomeLoaded) ||
+                        (p is HomeLoaded && c is HomeLoaded &&
+                            p.prayerTimes != c.prayerTimes),
+                    builder: (ctx, homeState) {
+                      final pt = homeState is HomeLoaded
+                          ? homeState.prayerTimes
+                          : null;
+                      return _RemindersCard(
+                        colors: colors,
+                        prayerTimes: pt,
+                        remAdhkarMorning: _remAdhkarMorning,
+                        remAdhkarEvening: _remAdhkarEvening,
+                        remFajrSunnah: _remFajrSunnah,
+                        remFajrSunnahMin: _remFajrSunnahMin,
+                        remQiyam: _remQiyam,
+                        remDuha: _remDuha,
+                        remQuran: _remQuran,
+                        remSalahAnnabi: _remSalahAnnabi,
+                        onToggle: _toggleReminder,
+                        onPickFajrSunnahMin: (min) async {
+                          setState(() => _remFajrSunnahMin = min);
+                          await _savePref(AppConstants.keyReminderFajrSunnahMin, min);
+                          await _scheduleReminders();
+                        },
+                      );
                     },
                   ),
                   SizedBox(height: 12.h),
@@ -1581,37 +1570,42 @@ class _ReminderPickerSheet extends StatelessWidget {
 
 class _RemindersCard extends StatelessWidget {
   final AppColorScheme colors;
+  final PrayerTimesEntity? prayerTimes;
   final bool remAdhkarMorning, remAdhkarEvening, remFajrSunnah,
       remQiyam, remDuha, remQuran, remSalahAnnabi;
-  final String remAdhkarMorningTime, remAdhkarEveningTime,
-      remDuhaTime, remQuranTime, remSalahAnnabiTime;
   final int remFajrSunnahMin;
   final void Function(String key, bool value) onToggle;
-  final void Function(String timeKey, String current) onPickTime;
   final void Function(int min) onPickFajrSunnahMin;
 
   const _RemindersCard({
     required this.colors,
+    required this.prayerTimes,
     required this.remAdhkarMorning,
-    required this.remAdhkarMorningTime,
     required this.remAdhkarEvening,
-    required this.remAdhkarEveningTime,
     required this.remFajrSunnah,
     required this.remFajrSunnahMin,
     required this.remQiyam,
     required this.remDuha,
-    required this.remDuhaTime,
     required this.remQuran,
-    required this.remQuranTime,
     required this.remSalahAnnabi,
-    required this.remSalahAnnabiTime,
     required this.onToggle,
-    required this.onPickTime,
     required this.onPickFajrSunnahMin,
   });
 
+  // Formats DateTime as "٦:١٥ ص" using Arabic digits
+  static String _timeLabel(DateTime? base, int offsetMin, String fallback) {
+    if (base == null) return fallback;
+    final t = base.add(Duration(minutes: offsetMin));
+    final h = t.hour;
+    final m = t.minute;
+    final period = h < 12 ? 'ص' : 'م';
+    final displayH = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+    return '$displayH:${m.toString().padLeft(2, '0')} $period';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final pt = prayerTimes;
     return Container(
       decoration: BoxDecoration(
         color: colors.card,
@@ -1624,22 +1618,20 @@ class _RemindersCard extends StatelessWidget {
             colors: colors,
             emoji: '🌅',
             title: 'أذكار الصباح',
-            subtitle: 'تذكير يومي بأذكار الصباح',
+            subtitle: 'بعد الفجر بـ ١٥ دقيقة',
             enabled: remAdhkarMorning,
-            timeValue: remAdhkarMorningTime,
+            timeLabel: _timeLabel(pt?.fajr, 15, '٦:١٥ ص'),
             onToggle: (v) => onToggle(AppConstants.keyReminderAdhkarMorning, v),
-            onTimeTap: () => onPickTime(AppConstants.keyReminderAdhkarMorningTime, remAdhkarMorningTime),
           ),
           _divider(colors),
           _ReminderTile(
             colors: colors,
             emoji: '🌆',
             title: 'أذكار المساء',
-            subtitle: 'تذكير يومي بأذكار المساء',
+            subtitle: 'بعد العصر بـ ١٥ دقيقة',
             enabled: remAdhkarEvening,
-            timeValue: remAdhkarEveningTime,
+            timeLabel: _timeLabel(pt?.asr, 15, '٤:١٥ م'),
             onToggle: (v) => onToggle(AppConstants.keyReminderAdhkarEvening, v),
-            onTimeTap: () => onPickTime(AppConstants.keyReminderAdhkarEveningTime, remAdhkarEveningTime),
           ),
           _divider(colors),
           _ReminderTile(
@@ -1668,33 +1660,30 @@ class _RemindersCard extends StatelessWidget {
             colors: colors,
             emoji: '☀️',
             title: 'صلاة الضحى',
-            subtitle: 'تذكير يومي بصلاة الضحى',
+            subtitle: 'بعد الشروق بـ ٢٠ دقيقة',
             enabled: remDuha,
-            timeValue: remDuhaTime,
+            timeLabel: _timeLabel(pt?.sunrise, 20, '٩:٠٠ ص'),
             onToggle: (v) => onToggle(AppConstants.keyReminderDuha, v),
-            onTimeTap: () => onPickTime(AppConstants.keyReminderDuhaTime, remDuhaTime),
           ),
           _divider(colors),
           _ReminderTile(
             colors: colors,
             emoji: '📖',
             title: 'تلاوة القرآن',
-            subtitle: 'تذكير يومي بقراءة القرآن الكريم',
+            subtitle: 'بعد المغرب بـ ٣٠ دقيقة',
             enabled: remQuran,
-            timeValue: remQuranTime,
+            timeLabel: _timeLabel(pt?.maghrib, 30, '٨:٠٠ م'),
             onToggle: (v) => onToggle(AppConstants.keyReminderQuran, v),
-            onTimeTap: () => onPickTime(AppConstants.keyReminderQuranTime, remQuranTime),
           ),
           _divider(colors),
           _ReminderTile(
             colors: colors,
             emoji: '🤲',
             title: 'الصلاة على النبي ﷺ',
-            subtitle: 'تذكير يومي بالصلاة على رسول الله',
+            subtitle: 'بعد الظهر بـ ١٥ دقيقة',
             enabled: remSalahAnnabi,
-            timeValue: remSalahAnnabiTime,
+            timeLabel: _timeLabel(pt?.dhuhr, 15, '١٢:١٥ م'),
             onToggle: (v) => onToggle(AppConstants.keyReminderSalahAnnabi, v),
-            onTimeTap: () => onPickTime(AppConstants.keyReminderSalahAnnabiTime, remSalahAnnabiTime),
           ),
         ],
       ),
@@ -1782,7 +1771,6 @@ class _ReminderTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool enabled;
-  final String? timeValue;
   final String? timeLabel;
   final ValueChanged<bool> onToggle;
   final VoidCallback? onTimeTap;
@@ -1794,14 +1782,14 @@ class _ReminderTile extends StatelessWidget {
     required this.subtitle,
     required this.enabled,
     required this.onToggle,
-    this.timeValue,
     this.timeLabel,
     this.onTimeTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final showTime = (timeValue != null || timeLabel != null) && enabled && onTimeTap != null;
+    final hasTime = timeLabel != null && enabled;
+    final isTappable = hasTime && onTimeTap != null;
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
       child: Row(
@@ -1826,21 +1814,27 @@ class _ReminderTile extends StatelessWidget {
               ],
             ),
           ),
-          if (showTime)
+          if (hasTime)
             GestureDetector(
-              onTap: onTimeTap,
+              onTap: isTappable ? onTimeTap : null,
               child: Container(
                 padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                 margin: EdgeInsets.only(left: 6.w),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withAlpha(20),
+                  color: isTappable
+                      ? AppColors.primary.withAlpha(20)
+                      : colors.divider.withAlpha(60),
                   borderRadius: BorderRadius.circular(8.r),
-                  border: Border.all(color: AppColors.primary.withAlpha(60)),
+                  border: Border.all(
+                    color: isTappable
+                        ? AppColors.primary.withAlpha(60)
+                        : colors.divider,
+                  ),
                 ),
                 child: Text(
-                  timeLabel ?? _formatTime(timeValue!),
+                  timeLabel!,
                   style: TextStyle(
-                    color: AppColors.primary,
+                    color: isTappable ? AppColors.primary : colors.textSecondary,
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1859,14 +1853,6 @@ class _ReminderTile extends StatelessWidget {
     );
   }
 
-  static String _formatTime(String hhmm) {
-    final p = hhmm.split(':');
-    final h = int.tryParse(p[0]) ?? 0;
-    final m = int.tryParse(p[1]) ?? 0;
-    final period = h < 12 ? 'ص' : 'م';
-    final displayH = h == 0 ? 12 : (h > 12 ? h - 12 : h);
-    return '$displayH:${m.toString().padLeft(2, '0')} $period';
-  }
 }
 
 // ─── Location Card ───
@@ -3410,11 +3396,16 @@ class _DhikrTile extends StatelessWidget {
 
 // ─── Dhikr Interval Bottom Sheet ───
 
-class _DhikrIntervalSheet extends StatelessWidget {
+class _DhikrIntervalSheet extends StatefulWidget {
   final int currentMinutes;
   const _DhikrIntervalSheet({required this.currentMinutes});
 
-  static const _options = [
+  @override
+  State<_DhikrIntervalSheet> createState() => _DhikrIntervalSheetState();
+}
+
+class _DhikrIntervalSheetState extends State<_DhikrIntervalSheet> {
+  static const _presets = [
     (30,   'كل ٣٠ دقيقة'),
     (60,   'كل ساعة'),
     (120,  'كل ساعتين'),
@@ -3423,70 +3414,198 @@ class _DhikrIntervalSheet extends StatelessWidget {
     (1440, 'مرة يومياً (٩ صباحاً)'),
   ];
 
+  bool get _isCustom => !_presets.any((p) => p.$1 == widget.currentMinutes);
+  bool _showCustomInput = false;
+  final _controller = TextEditingController();
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isCustom) {
+      _showCustomInput = true;
+      _controller.text = widget.currentMinutes.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submitCustom() {
+    final val = int.tryParse(_controller.text.trim());
+    if (val == null || val < 1 || val > 1439) {
+      setState(() => _error = 'أدخل رقماً بين ١ و ١٤٣٩');
+      return;
+    }
+    Navigator.of(context).pop(val);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-        border: Border(top: BorderSide(color: AppColors.primary.withAlpha(80), width: 1.5)),
-      ),
-      padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 32.h),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 36.w, height: 4.h,
-            decoration: BoxDecoration(
-              color: Colors.grey.withAlpha(80),
-              borderRadius: BorderRadius.circular(2.r),
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+          border: Border(top: BorderSide(color: AppColors.primary.withAlpha(80), width: 1.5)),
+        ),
+        padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 32.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36.w, height: 4.h,
+              decoration: BoxDecoration(
+                color: Colors.grey.withAlpha(80),
+                borderRadius: BorderRadius.circular(2.r),
+              ),
             ),
-          ),
-          SizedBox(height: 12.h),
-          Text('تكرار التذكير',
-              style: TextStyle(
-                  color: colors.textPrimary,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w700)),
-          SizedBox(height: 4.h),
-          Text('من ٧ صباحاً حتى ٩:٣٠ مساءً',
-              style: TextStyle(color: colors.textSecondary, fontSize: 11.sp)),
-          SizedBox(height: 16.h),
-          ..._options.map((opt) {
-            final (mins, label) = opt;
-            final isSelected = currentMinutes == mins;
-            return InkWell(
-              onTap: () => Navigator.of(context).pop(mins),
+            SizedBox(height: 12.h),
+            Text('تكرار التذكير',
+                style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700)),
+            SizedBox(height: 4.h),
+            Text('من ٧ صباحاً حتى ٩:٣٠ مساءً',
+                style: TextStyle(color: colors.textSecondary, fontSize: 11.sp)),
+            SizedBox(height: 16.h),
+
+            // ─── Preset options ───
+            ..._presets.map((opt) {
+              final (mins, label) = opt;
+              final isSelected = !_showCustomInput && widget.currentMinutes == mins;
+              return InkWell(
+                onTap: () => Navigator.of(context).pop(mins),
+                borderRadius: BorderRadius.circular(10.r),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 11.h),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                        color: isSelected ? AppColors.primary : colors.textSecondary,
+                        size: 22.r,
+                      ),
+                      SizedBox(width: 14.w),
+                      Expanded(
+                        child: Text(label,
+                            style: TextStyle(
+                              color: isSelected ? AppColors.primary : colors.textPrimary,
+                              fontSize: 15.sp,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            )),
+                      ),
+                      if (isSelected)
+                        Icon(Icons.check_circle, color: AppColors.primary, size: 18.r),
+                    ],
+                  ),
+                ),
+              );
+            }),
+
+            // ─── Custom option ───
+            InkWell(
+              onTap: () => setState(() {
+                _showCustomInput = true;
+                if (_isCustom) _controller.text = widget.currentMinutes.toString();
+              }),
               borderRadius: BorderRadius.circular(10.r),
               child: Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 11.h),
                 child: Row(
                   children: [
                     Icon(
-                      isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                      color: isSelected ? AppColors.primary : colors.textSecondary,
+                      (_showCustomInput || _isCustom)
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      color: (_showCustomInput || _isCustom)
+                          ? AppColors.primary
+                          : colors.textSecondary,
                       size: 22.r,
                     ),
                     SizedBox(width: 14.w),
                     Expanded(
-                      child: Text(label,
-                          style: TextStyle(
-                            color: isSelected ? AppColors.primary : colors.textPrimary,
-                            fontSize: 15.sp,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                          )),
+                      child: Text(
+                        (_isCustom && !_showCustomInput)
+                            ? 'كل ${widget.currentMinutes} دقيقة'
+                            : 'وقت مخصص (بالدقائق)',
+                        style: TextStyle(
+                          color: (_showCustomInput || _isCustom)
+                              ? AppColors.primary
+                              : colors.textPrimary,
+                          fontSize: 15.sp,
+                          fontWeight: (_showCustomInput || _isCustom)
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                      ),
                     ),
-                    if (isSelected)
+                    if (_isCustom && !_showCustomInput)
                       Icon(Icons.check_circle, color: AppColors.primary, size: 18.r),
                   ],
                 ),
               ),
-            );
-          }),
-        ],
+            ),
+
+            // ─── Custom input field ───
+            if (_showCustomInput) ...[
+              SizedBox(height: 8.h),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      autofocus: true,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16.sp, color: colors.textPrimary),
+                      decoration: InputDecoration(
+                        hintText: 'عدد الدقائق',
+                        hintStyle: TextStyle(color: colors.textSecondary, fontSize: 14.sp),
+                        errorText: _error,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10.r),
+                          borderSide: BorderSide(color: AppColors.primary.withAlpha(100)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10.r),
+                          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                        ),
+                      ),
+                      onSubmitted: (_) => _submitCustom(),
+                      onChanged: (_) { if (_error != null) setState(() => _error = null); },
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  SizedBox(
+                    height: 48.h,
+                    child: ElevatedButton(
+                      onPressed: _submitCustom,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.r)),
+                        padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      ),
+                      child: Text('حفظ', style: TextStyle(fontSize: 14.sp)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

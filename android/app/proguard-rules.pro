@@ -1,20 +1,21 @@
 # ────────────────────────────────────────────────────────────
-# Gson TypeToken — CRITICAL: preserve generic type signatures.
-# Flutter enables isMinifyEnabled=true for release builds via
-# FlutterPlugin.kt:216 using proguard-android-optimize.txt,
-# which strips Signature attributes. Without them, Gson's
-# anonymous TypeToken<ArrayList<NotificationDetails>>() {} in
-# FlutterLocalNotificationsPlugin.loadScheduledNotifications()
-# throws RuntimeException("Missing type parameter.") at every
-# call to zonedSchedule (even when SharedPreferences is empty,
-# because the TypeToken is instantiated before the null-check).
+# Gson TypeToken — not needed for flutter_local_notifications v19+
+# (Gson bumped to 2.12 which handles its own type retention).
+# Kept here exactly per the official example for compatibility.
 -keepattributes Signature
 -keepattributes EnclosingMethod
 -keepattributes InnerClasses
--keep class com.google.gson.reflect.TypeToken { *; }
--keep class * extends com.google.gson.reflect.TypeToken
--keep class com.google.gson.** { *; }
--dontwarn com.google.gson.**
+-keepattributes *Annotation*
+-dontwarn sun.misc.**
+-keep class * extends com.google.gson.TypeAdapter
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+-keepclassmembers,allowobfuscation class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+-keep,allowobfuscation,allowshrinking class com.google.gson.reflect.TypeToken
+-keep,allowobfuscation,allowshrinking class * extends com.google.gson.reflect.TypeToken
 
 # flutter_local_notifications — keep all plugin classes
 -keep class com.dexterous.** { *; }
@@ -33,10 +34,6 @@
 -keep class be.tramckrijte.workmanager.** { *; }
 -dontwarn be.tramckrijte.workmanager.**
 
-# Dart @pragma('vm:entry-point') — tells R8 these classes are called reflectively
--keep @interface kotlin.Metadata
--keepattributes *Annotation*
-
 # Room
 -keep class androidx.room.** { *; }
 -keep interface androidx.room.** { *; }
@@ -50,9 +47,9 @@
 -dontwarn io.objectbox.**
 
 # Keep database constructors (critical for WorkManager and Room)
--keep class androidx.work.impl.WorkDatabase_Impl { 
+-keep class androidx.work.impl.WorkDatabase_Impl {
     <init>(...);
 }
--keep class * extends androidx.room.RoomDatabase { 
+-keep class * extends androidx.room.RoomDatabase {
     <init>(...);
 }

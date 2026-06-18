@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -9,6 +10,8 @@ import '../../../../core/services/background_service.dart';
 import '../../domain/entities/reciter_entity.dart';
 import '../../domain/repositories/quran_audio_repository.dart';
 import '../../domain/usecases/quran_audio_usecases.dart';
+
+enum AudioRepeatMode { none, repeatOne }
 
 // ─── States ───
 
@@ -110,6 +113,24 @@ class QuranAudioCubit extends Cubit<QuranAudioState> {
   List<ReciterEntity> get reciters => List.unmodifiable(_reciters);
   ReciterEntity? get selectedReciter => _selectedReciter;
 
+  final repeatModeNotifier = ValueNotifier<AudioRepeatMode>(AudioRepeatMode.none);
+  AudioRepeatMode _repeatMode = AudioRepeatMode.none;
+
+  static const List<int> _surahAyahCounts = [
+    7, 286, 200, 176, 120, 165, 206, 75, 129, 109, 123, 111, 43, 52, 99, 128,
+    111, 110, 98, 135, 112, 78, 118, 64, 77, 227, 93, 88, 69, 60, 34, 30, 73,
+    54, 45, 83, 182, 88, 75, 85, 54, 53, 89, 59, 37, 35, 38, 29, 18, 45, 60,
+    49, 62, 55, 78, 96, 29, 22, 24, 13, 14, 11, 11, 18, 12, 12, 30, 52, 52, 44,
+    28, 28, 20, 56, 40, 31, 50, 40, 46, 42, 29, 19, 36, 25, 22, 17, 19, 26, 30,
+    20, 15, 21, 11, 8, 8, 19, 5, 8, 8, 11, 11, 8, 3, 9, 5, 4, 7, 3, 6, 3, 5,
+    4, 5, 6,
+  ];
+
+  static int _ayahCountFor(int surahNum) =>
+      surahNum >= 1 && surahNum <= _surahAyahCounts.length
+          ? _surahAyahCounts[surahNum - 1]
+          : 1;
+
   StreamSubscription<PlayerState>? _playerStateSub;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _durationSub;
@@ -143,13 +164,88 @@ class QuranAudioCubit extends Cubit<QuranAudioState> {
 
   void _onPlayerState(PlayerState ps) {
     final s = state;
-    if (ps == PlayerState.completed) {
-      if (s is QuranAudioPlaying) {
-        emit(QuranAudioRecitersLoaded(
-          reciters: _reciters,
-          selectedReciter: _selectedReciter,
-        ));
+    if (ps == PlayerState.completed && s is QuranAudioPlaying) {
+      unawaited(_handlePlaybackComplete(s));
+    }
+  }
+
+  Future<void> _handlePlaybackComplete(QuranAudioPlaying s) async {
+    if (isClosed) return;
+
+    if (_repeatMode == AudioRepeatMode.repeatOne) {
+      if (s.isSurah) {
+        await playSurah(s.surahNum);
+      } else if (s.ayahNum != null) {
+        await playAyah(s.surahNum, s.ayahNum!);
       }
+      return;
+    }
+
+    // Auto-advance to next ayah or surah
+    if (!s.isSurah && s.ayahNum != null) {
+      final nextAyah = s.ayahNum! + 1;
+      if (nextAyah <= _ayahCountFor(s.surahNum)) {
+        if (!isClosed) await playAyah(s.surahNum, nextAyah);
+      } else if (s.surahNum < 114) {
+        if (!isClosed) await playSurah(s.surahNum + 1);
+      } else {
+        if (!isClosed) emit(QuranAudioRecitersLoaded(reciters: _reciters, selectedReciter: _selectedReciter));
+      }
+    } else {
+      if (s.surahNum < 114) {
+        if (!isClosed) await playSurah(s.surahNum + 1);
+      } else {
+        if (!isClosed) emit(QuranAudioRecitersLoaded(reciters: _reciters, selectedReciter: _selectedReciter));
+      }
+    }
+  }
+
+  void setAudioRepeatMode(AudioRepeatMode mode) {
+    _repeatMode = mode;
+    repeatModeNotifier.value = mode;
+  }
+
+  Future<void> playNext() async {
+    final s = state;
+    final int surahNum;
+    final int ayahNum;
+    final bool isSurah;
+    if (s is QuranAudioPlaying) {
+      surahNum = s.surahNum; ayahNum = s.ayahNum ?? 1; isSurah = s.isSurah;
+    } else if (s is QuranAudioPaused) {
+      surahNum = s.surahNum; ayahNum = s.ayahNum ?? 1; isSurah = s.isSurah;
+    } else { return; }
+
+    if (!isSurah) {
+      if (ayahNum < _ayahCountFor(surahNum)) {
+        await playAyah(surahNum, ayahNum + 1);
+      } else if (surahNum < 114) {
+        await playSurah(surahNum + 1);
+      }
+    } else {
+      if (surahNum < 114) { await playSurah(surahNum + 1); }
+    }
+  }
+
+  Future<void> playPrev() async {
+    final s = state;
+    final int surahNum;
+    final int ayahNum;
+    final bool isSurah;
+    if (s is QuranAudioPlaying) {
+      surahNum = s.surahNum; ayahNum = s.ayahNum ?? 1; isSurah = s.isSurah;
+    } else if (s is QuranAudioPaused) {
+      surahNum = s.surahNum; ayahNum = s.ayahNum ?? 1; isSurah = s.isSurah;
+    } else { return; }
+
+    if (!isSurah) {
+      if (ayahNum > 1) {
+        await playAyah(surahNum, ayahNum - 1);
+      } else if (surahNum > 1) {
+        await playAyah(surahNum - 1, _ayahCountFor(surahNum - 1));
+      }
+    } else {
+      if (surahNum > 1) { await playSurah(surahNum - 1); }
     }
   }
 
@@ -222,16 +318,16 @@ class QuranAudioCubit extends Cubit<QuranAudioState> {
     if (isClosed) return;
     if (localPath == null || localPath.startsWith('__error_')) {
       final code = localPath?.replaceFirst('__error_', '') ?? '?';
-      // 403/404 → this reciter doesn't have per-ayah audio on the CDN.
-      // Fall back to playing the full surah so the user isn't left with silence.
-      if (code == '403' || code == '404') {
-        emit(QuranAudioError(
-            'هذا القارئ لا يدعم تشغيل الآية المفردة — سيتم تشغيل السورة كاملة'));
-        await Future.delayed(const Duration(seconds: 2));
-        if (!isClosed) await playSurah(surahNum);
+      // null (network exception) → show connectivity error
+      if (code == '?') {
+        emit(QuranAudioError('تعذّر تحميل الآية، تحقق من الاتصال بالإنترنت'));
         return;
       }
-      emit(QuranAudioError('تعذّر تحميل الآية، تحقق من الاتصال بالإنترنت'));
+      // HTTP error (4xx/5xx) → CDN doesn't support per-ayah for this reciter
+      // Fall back to the full surah automatically
+      emit(QuranAudioError('سيُشغَّل صوت السورة كاملة'));
+      await Future.delayed(const Duration(seconds: 1));
+      if (!isClosed) await playSurah(surahNum);
       return;
     }
     await _player.setSourceDeviceFile(localPath);
@@ -437,6 +533,7 @@ class QuranAudioCubit extends Cubit<QuranAudioState> {
     await _positionSub?.cancel();
     await _durationSub?.cancel();
     await _player.dispose();
+    repeatModeNotifier.dispose();
     return super.close();
   }
 }

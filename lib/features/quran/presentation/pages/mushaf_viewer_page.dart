@@ -502,7 +502,9 @@ class _AyahTapSheet extends StatelessWidget {
           BlocBuilder<QuranAudioCubit, QuranAudioState>(
             buildWhen: (p, c) =>
                 (p is QuranAudioPlaying) != (c is QuranAudioPlaying) ||
-                (p is QuranAudioPaused) != (c is QuranAudioPaused),
+                (p is QuranAudioPaused) != (c is QuranAudioPaused) ||
+                (p is QuranAudioPlaying && c is QuranAudioPlaying &&
+                    (p.surahNum != c.surahNum || p.ayahNum != c.ayahNum)),
             builder: (context, audioState) {
               if (audioState is! QuranAudioPlaying &&
                   audioState is! QuranAudioPaused) {
@@ -512,8 +514,15 @@ class _AyahTapSheet extends StatelessWidget {
               final paused = audioState is QuranAudioPaused ? audioState : null;
               final isPlaying = playing != null;
               final sNum = playing?.surahNum ?? paused!.surahNum;
+              final aNum = playing?.ayahNum ?? paused?.ayahNum;
+              final isSurahMode = playing?.isSurah ?? paused?.isSurah ?? true;
               final reciterName =
                   playing?.reciter.arabicName ?? paused!.reciter.arabicName;
+              final sName = mushafState.surahInfo(sNum).arabicName
+                  .replaceAll('سُورَةُ', '').replaceAll('سُورَة', '').trim();
+              final displayText = isSurahMode
+                  ? sName
+                  : '$sName  •  آية ${_toArabicNum(aNum ?? 1)}';
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -548,7 +557,7 @@ class _AyahTapSheet extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              'سورة رقم ${_toArabicNum(sNum)}',
+                              displayText,
                               style: TextStyle(
                                   fontSize: 12.sp,
                                   color: textPrimary,

@@ -39,8 +39,8 @@ dependencies:
   flutter_compass: ^0.8.1
 
   # Local Notifications (prayer time alerts)
-  flutter_local_notifications: ^18.0.1
-  timezone: ^0.9.4
+  flutter_local_notifications: ^19.0.0
+  timezone: ^0.10.1
   flutter_timezone: ^3.0.0
   home_widget: ^0.7.0
 

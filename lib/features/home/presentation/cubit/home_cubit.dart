@@ -144,21 +144,20 @@ class HomeCubit extends Cubit<HomeState> {
       final prefs = sl<SharedPreferences>();
       RemindersService.scheduleAll(
         prefs: {
-          AppConstants.keyReminderAdhkarMorning:     prefs.getBool(AppConstants.keyReminderAdhkarMorning) ?? false,
-          AppConstants.keyReminderAdhkarMorningTime: prefs.getString(AppConstants.keyReminderAdhkarMorningTime) ?? '06:00',
-          AppConstants.keyReminderAdhkarEvening:     prefs.getBool(AppConstants.keyReminderAdhkarEvening) ?? false,
-          AppConstants.keyReminderAdhkarEveningTime: prefs.getString(AppConstants.keyReminderAdhkarEveningTime) ?? '16:00',
-          AppConstants.keyReminderFajrSunnah:        prefs.getBool(AppConstants.keyReminderFajrSunnah) ?? false,
-          AppConstants.keyReminderFajrSunnahMin:     prefs.getInt(AppConstants.keyReminderFajrSunnahMin) ?? 20,
-          AppConstants.keyReminderQiyam:              prefs.getBool(AppConstants.keyReminderQiyam) ?? false,
-          AppConstants.keyReminderDuha:              prefs.getBool(AppConstants.keyReminderDuha) ?? false,
-          AppConstants.keyReminderDuhaTime:          prefs.getString(AppConstants.keyReminderDuhaTime) ?? '09:00',
-          AppConstants.keyReminderQuran:             prefs.getBool(AppConstants.keyReminderQuran) ?? false,
-          AppConstants.keyReminderQuranTime:         prefs.getString(AppConstants.keyReminderQuranTime) ?? '20:00',
-          AppConstants.keyReminderSalahAnnabi:       prefs.getBool(AppConstants.keyReminderSalahAnnabi) ?? false,
-          AppConstants.keyReminderSalahAnnabiTime:   prefs.getString(AppConstants.keyReminderSalahAnnabiTime) ?? '12:00',
+          AppConstants.keyReminderAdhkarMorning: prefs.getBool(AppConstants.keyReminderAdhkarMorning) ?? false,
+          AppConstants.keyReminderAdhkarEvening: prefs.getBool(AppConstants.keyReminderAdhkarEvening) ?? false,
+          AppConstants.keyReminderFajrSunnah:    prefs.getBool(AppConstants.keyReminderFajrSunnah) ?? false,
+          AppConstants.keyReminderFajrSunnahMin: prefs.getInt(AppConstants.keyReminderFajrSunnahMin) ?? 20,
+          AppConstants.keyReminderQiyam:          prefs.getBool(AppConstants.keyReminderQiyam) ?? false,
+          AppConstants.keyReminderDuha:          prefs.getBool(AppConstants.keyReminderDuha) ?? false,
+          AppConstants.keyReminderQuran:         prefs.getBool(AppConstants.keyReminderQuran) ?? false,
+          AppConstants.keyReminderSalahAnnabi:   prefs.getBool(AppConstants.keyReminderSalahAnnabi) ?? false,
         },
         fajrTime: times.fajr,
+        sunriseTime: times.sunrise,
+        dhuhrTime: times.dhuhr,
+        asrTime: times.asr,
+        maghribTime: times.maghrib,
         ishaTime: times.isha,
       );
       PrayerTimerService.scheduleIstighfarTimer(

@@ -110,9 +110,18 @@ class _PlayerSheetContent extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Row 1: Reciter + تغيير button
+          // Row 1: Close + Reciter + تغيير
           Row(
             children: [
+              GestureDetector(
+                onTap: () => context.read<QuranAudioCubit>().stop(),
+                child: Padding(
+                  padding: EdgeInsets.only(left: 4.w, right: 8.w),
+                  child: Icon(Icons.close,
+                      size: 20.r,
+                      color: isDark ? Colors.white54 : Colors.black45),
+                ),
+              ),
               GestureDetector(
                 onTap: () => _showReciterPicker(context),
                 child: Container(
@@ -219,14 +228,30 @@ class _PlayerSheetContent extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Close
+              // Repeat button — cycles none ↔ repeatOne
+              ValueListenableBuilder<AudioRepeatMode>(
+                valueListenable: context.read<QuranAudioCubit>().repeatModeNotifier,
+                builder: (_, mode, child) => _ControlBtn(
+                  icon: mode == AudioRepeatMode.repeatOne
+                      ? Icons.repeat_one
+                      : Icons.repeat,
+                  onTap: () => context.read<QuranAudioCubit>().setAudioRepeatMode(
+                      mode == AudioRepeatMode.none
+                          ? AudioRepeatMode.repeatOne
+                          : AudioRepeatMode.none),
+                  color: mode == AudioRepeatMode.repeatOne
+                      ? AppColors.primary
+                      : (isDark ? Colors.white38 : Colors.black38),
+                ),
+              ),
+              // Previous ayah / surah
               _ControlBtn(
-                icon: Icons.close,
-                onTap: () => context.read<QuranAudioCubit>().stop(),
-                color: isDark ? Colors.white54 : Colors.black45,
+                icon: Icons.skip_previous_rounded,
+                onTap: isDownloading ? null : () => context.read<QuranAudioCubit>().playPrev(),
+                color: isDark ? const Color(0xFFEBD9A6) : AppColors.textPrimaryLight,
               ),
               if (isSurah) ...[
-                // Previous (replay)
+                // Seek back 10s
                 _ControlBtn(
                   icon: Icons.replay_10,
                   onTap: () {
@@ -278,7 +303,7 @@ class _PlayerSheetContent extends StatelessWidget {
                   ),
                 ),
               if (isSurah) ...[
-                // Forward
+                // Seek forward 10s
                 _ControlBtn(
                   icon: Icons.forward_10,
                   onTap: () {
@@ -296,7 +321,13 @@ class _PlayerSheetContent extends StatelessWidget {
                       : AppColors.textPrimaryLight,
                 ),
               ],
-              // Download (only for surah mode)
+              // Next ayah / surah
+              _ControlBtn(
+                icon: Icons.skip_next_rounded,
+                onTap: isDownloading ? null : () => context.read<QuranAudioCubit>().playNext(),
+                color: isDark ? const Color(0xFFEBD9A6) : AppColors.textPrimaryLight,
+              ),
+              // Download (surah only)
               if (isSurah)
                 _ControlBtn(
                   icon: Icons.download_outlined,
@@ -308,9 +339,7 @@ class _PlayerSheetContent extends StatelessWidget {
                   color: isDark
                       ? const Color(0xFFEBD9A6)
                       : AppColors.textPrimaryLight,
-                )
-              else
-                const SizedBox(width: 40),
+                ),
             ],
           ),
           // Row 5: Download progress
