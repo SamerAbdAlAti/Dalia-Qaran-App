@@ -88,6 +88,11 @@ class _MushafContentState extends State<_MushafContent> {
   bool _showControls = false;
   bool _showPanel = true;
   Timer? _hideControlsTimer;
+  int? _lastHizb;
+  int? _hizbToShow;
+  // Track previous audio state to avoid reacting to position-only updates.
+  int? _prevPlayingSurah;
+  int? _prevPlayingAyah;
   final _selectedAyah = ValueNotifier<(int, int)?>(null);
 
   void _goToPage(int page) {
@@ -103,31 +108,52 @@ class _MushafContentState extends State<_MushafContent> {
     });
   }
 
-  // When audio advances to a new ayah on the next page, auto-flip there.
-  void _checkAndAdvancePage(BuildContext context, int surahNum, int ayahNum) {
+  void _checkHizbChange(BuildContext context, MushafReady state) {
+    final pageData = context.read<MushafCubit>().getPageData(state.currentPage);
+    if (pageData == null) return;
+    final markedAyah = pageData.ayahs.where((a) => a.hizbQuarter > 0).firstOrNull;
+    if (markedAyah == null) return;
+    final hizbQ = markedAyah.hizbQuarter;
+    final newHizb = ((hizbQ - 1) ~/ 4) + 1; // 1-60
+    if (_lastHizb != null && newHizb != _lastHizb && hizbQ % 4 == 1) {
+      setState(() => _hizbToShow = newHizb);
+    }
+    _lastHizb = newHizb;
+  }
+
+  // Called only when surahNum or ayahNum actually changes — not on position updates.
+  void _onAudioAdvanced(BuildContext context, QuranAudioPlaying s) {
     final mushafCubit = context.read<MushafCubit>();
     final ms = mushafCubit.state;
     if (ms is! MushafReady) return;
-
     final currentPage = ms.currentPage;
-    final currentData = mushafCubit.getPageData(currentPage);
-    final onCurrentPage = currentData?.ayahs.any(
-          (a) => a.surahId == surahNum && a.ayahNum == ayahNum,
-        ) ??
-        false;
-    if (!onCurrentPage && currentPage < _totalPages) {
-      final nextData = mushafCubit.getPageData(currentPage + 1);
-      final onNextPage = nextData?.ayahs.any(
-            (a) => a.surahId == surahNum && a.ayahNum == ayahNum,
-          ) ??
-          false;
-      if (onNextPage) {
+
+    if (s.isSurah) {
+      // Surah mode: turn to the first page of the surah when surah changes.
+      final surahPage = ms.surahFirstPages[s.surahNum];
+      if (surahPage != null && surahPage > currentPage) {
         _pageController?.animateToPage(
-          currentPage, // index = page - 1, next page index = currentPage
+          surahPage - 1,
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOut,
         );
       }
+      return;
+    }
+
+    // Ayah-by-ayah mode: if the new ayah is not on the current page, advance.
+    if (s.ayahNum == null) return;
+    final currentData = mushafCubit.getPageData(currentPage);
+    final onCurrentPage = currentData?.ayahs.any(
+          (a) => a.surahId == s.surahNum && a.ayahNum == s.ayahNum,
+        ) ??
+        false;
+    if (!onCurrentPage && currentPage < _totalPages) {
+      _pageController?.animateToPage(
+        currentPage, // 0-based index of next page
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
     }
   }
 
@@ -137,54 +163,73 @@ class _MushafContentState extends State<_MushafContent> {
       listener: (context, audioState) {
         if (audioState is QuranAudioPlaying) {
           if (_showPanel) setState(() => _showPanel = false);
-          if (!audioState.isSurah && audioState.ayahNum != null) {
-            _checkAndAdvancePage(context, audioState.surahNum, audioState.ayahNum!);
+          // Only react when the surah or ayah actually changes, not on
+          // every position update (which fires many times per second).
+          final surahChanged = audioState.surahNum != _prevPlayingSurah;
+          final ayahChanged = audioState.ayahNum != _prevPlayingAyah;
+          if (surahChanged || ayahChanged) {
+            _prevPlayingSurah = audioState.surahNum;
+            _prevPlayingAyah = audioState.ayahNum;
+            _onAudioAdvanced(context, audioState);
           }
         } else if (audioState is QuranAudioInitial ||
             audioState is QuranAudioRecitersLoaded ||
             audioState is QuranAudioError) {
           if (!_showPanel) setState(() => _showPanel = true);
+          _prevPlayingSurah = null;
+          _prevPlayingAyah = null;
         }
       },
-      child: BlocConsumer<MushafCubit, MushafState>(
+      child: BlocListener<MushafCubit, MushafState>(
         listenWhen: (prev, curr) =>
-            prev is MushafLoading && curr is MushafReady,
+            prev is MushafReady &&
+            curr is MushafReady &&
+            prev.currentPage != curr.currentPage,
         listener: (context, state) {
-          if (state is MushafReady) {
-            int startPage = state.currentPage;
-            if (widget.surahId != null) {
-              startPage = state.surahFirstPages[widget.surahId!] ?? startPage;
-              context.read<MushafCubit>().setPage(startPage);
+          if (state is MushafReady) _checkHizbChange(context, state);
+        },
+        child: BlocConsumer<MushafCubit, MushafState>(
+          listenWhen: (prev, curr) =>
+              prev is MushafLoading && curr is MushafReady,
+          listener: (context, state) {
+            if (state is MushafReady) {
+              int startPage = state.currentPage;
+              if (widget.surahId != null) {
+                startPage = state.surahFirstPages[widget.surahId!] ?? startPage;
+                context.read<MushafCubit>().setPage(startPage);
+              }
+              setState(() {
+                _pageController = PageController(initialPage: startPage - 1);
+              });
             }
-            setState(() {
-              _pageController = PageController(initialPage: startPage - 1);
-            });
-          }
-        },
-        builder: (context, state) {
-          if (state is MushafLoading || state is MushafInitial) {
+          },
+          builder: (context, state) {
+            if (state is MushafLoading || state is MushafInitial) {
+              return _LoadingView();
+            }
+            if (state is MushafError) {
+              return _ErrorView(message: state.message);
+            }
+            if (state is MushafReady && _pageController != null) {
+              return _ReaderView(
+                state: state,
+                controller: _pageController!,
+                showControls: _showControls,
+                showPanel: _showPanel,
+                hizbToShow: _hizbToShow,
+                onTap: _showControlsTemporarily,
+                onShowPanel: () {
+                  setState(() => _showPanel = true);
+                  _showControlsTemporarily();
+                },
+                onHizbDismissed: () => setState(() => _hizbToShow = null),
+                onGoToPage: _goToPage,
+                selectedAyah: _selectedAyah,
+              );
+            }
             return _LoadingView();
-          }
-          if (state is MushafError) {
-            return _ErrorView(message: state.message);
-          }
-          if (state is MushafReady && _pageController != null) {
-            return _ReaderView(
-              state: state,
-              controller: _pageController!,
-              showControls: _showControls,
-              showPanel: _showPanel,
-              onTap: _showControlsTemporarily,
-              onShowPanel: () {
-                setState(() => _showPanel = true);
-                _showControlsTemporarily();
-              },
-              onGoToPage: _goToPage,
-              selectedAyah: _selectedAyah,
-            );
-          }
-          return _LoadingView();
-        },
+          },
+        ),
       ),
     );
   }
@@ -205,8 +250,10 @@ class _ReaderView extends StatelessWidget {
   final PageController controller;
   final bool showControls;
   final bool showPanel;
+  final int? hizbToShow;
   final VoidCallback onTap;
   final VoidCallback onShowPanel;
+  final VoidCallback onHizbDismissed;
   final void Function(int page) onGoToPage;
   final ValueNotifier<(int, int)?> selectedAyah;
 
@@ -215,12 +262,13 @@ class _ReaderView extends StatelessWidget {
     required this.controller,
     required this.showControls,
     required this.showPanel,
+    required this.hizbToShow,
     required this.onTap,
     required this.onShowPanel,
+    required this.onHizbDismissed,
     required this.onGoToPage,
     required this.selectedAyah,
   });
-
 
   @override
   Widget build(BuildContext context) {
@@ -233,50 +281,90 @@ class _ReaderView extends StatelessWidget {
             .trim())
         .toList();
 
+    // Compute current page info for persistent header/footer
+    final pageData =
+        context.read<MushafCubit>().getPageData(state.currentPage);
+    final firstSurahId = pageData?.ayahs.firstOrNull?.surahId;
+    final surahName = firstSurahId != null
+        ? state
+            .surahInfo(firstSurahId)
+            .arabicName
+            .replaceAll('سُورَةُ', '')
+            .replaceAll('سُورَة', '')
+            .trim()
+        : '';
+    final juzNum = pageData?.juzNumber ?? 1;
+
     return Scaffold(
       backgroundColor:
           isDark ? const Color(0xFF0F0D08) : const Color(0xFFEDE8D5),
       drawer: _MushafDrawer(state: state, onGoToPage: onGoToPage),
-      body: Column(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: onTap,
-              behavior: HitTestBehavior.translucent,
-              child: Stack(
-                children: [
-                  PageView.builder(
-                    controller: controller,
-                    itemCount: _totalPages,
-                    onPageChanged: (index) =>
-                        context.read<MushafCubit>().setPage(index + 1),
-                    itemBuilder: (context, index) {
-                      return _MushafPageWidget(
-                        pageNumber: index + 1,
-                        state: state,
+      body: SafeArea(
+        top: false,
+        child: Stack(
+          children: [
+            SafeArea(
+              child: Padding(
+                padding:  EdgeInsets.only(top: 30.h),
+                child: GestureDetector(
+                  onTap: onTap,
+                  behavior: HitTestBehavior.translucent,
+                  child: Stack(
+                    children: [
+                      PageView.builder(
+                        controller: controller,
+                        itemCount: _totalPages,
+                        onPageChanged: (index) =>
+                            context.read<MushafCubit>().setPage(index + 1),
+                        itemBuilder: (context, index) {
+                          return _MushafPageWidget(
+                            pageNumber: index + 1,
+                            state: state,
+                            isDark: isDark,
+                            selectedAyah: selectedAyah,
+                            bottomInset: showControls ? 48.h : 22.h,
+                          );
+                        },
+                      ),
+                      // Page number overlay at bottom (small gradient strip)
+                      _PageFooterInfo(
+                        pageNumber: state.currentPage,
                         isDark: isDark,
-                        selectedAyah: selectedAyah,
-                        bottomInset: showControls ? 48.h : 0,
-                      );
-                    },
+                        visible: !showControls,
+                      ),
+                      if (showControls) ...[
+                        _TopBar(state: state, isDark: isDark),
+                        _BottomBar(state: state, isDark: isDark),
+                      ],
+                      if (hizbToShow != null)
+                        _HizbBanner(
+                          key: ValueKey(hizbToShow),
+                          hizbNumber: hizbToShow!,
+                          onDismissed: onHizbDismissed,
+                        ),
+                      _SwipeDownHandle(onSwipeDown: onTap),
+                      if (!showPanel)
+                        _SwipeUpHandle(isDark: isDark, onSwipeUp: onShowPanel),
+                    ],
                   ),
-                  if (showControls) ...[
-                    _TopBar(state: state, isDark: isDark),
-                    _BottomBar(state: state, isDark: isDark),
-                  ],
-                  // Swipe-down from top → show controls
-                  _SwipeDownHandle(onSwipeDown: onTap),
-                  if (!showPanel)
-                    _SwipeUpHandle(isDark: isDark, onSwipeUp: onShowPanel),
-                ],
+                ),
               ),
             ),
-          ),
-          if (showPanel) ...[
-            _AyahBar(mushafState: state),
-            AudioPlayerSheet(surahNames: surahNames),
+            if (showPanel) ...[
+              // _AyahBar(mushafState: state),
+              AudioPlayerSheet(surahNames: surahNames),
+            ],
+            // Permanent header bar — fixed at top, layered above everything
+            IgnorePointer(
+              child: SafeArea(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: _PageHeaderInfo(surahName: surahName, juzNum: juzNum, isDark: isDark),
+                ),
+              ),
+            ),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1007,6 +1095,207 @@ class _BottomBar extends StatelessWidget {
   }
 }
 
+// ─── Page Header Info (always-visible surah + juz) ───
+
+class _PageHeaderInfo extends StatelessWidget {
+  final String surahName;
+  final int juzNum;
+  final bool isDark;
+
+  const _PageHeaderInfo({
+    required this.surahName,
+    required this.juzNum,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (surahName.isEmpty) return const SizedBox.shrink();
+    final bgColor =
+        isDark ? const Color(0xFF1C1509) : const Color(0xFFFBF6E8);
+    final textColor =
+        isDark ? const Color(0xFFEBD9A6) : const Color(0xFF1A0A00);
+
+    return Container(
+      height: 30.h,
+      color: bgColor,
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      child: Row(
+        textDirection: TextDirection.rtl,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            surahName,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 11.sp,
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            'الجزء ${_toArabicNum(juzNum)}',
+            style: TextStyle(
+              color: textColor.withAlpha(180),
+              fontSize: 11.sp,
+              fontFamily: 'Cairo',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Page Footer Info (always-visible page number) ───
+
+class _PageFooterInfo extends StatelessWidget {
+  final int pageNumber;
+  final bool isDark;
+  final bool visible;
+
+  const _PageFooterInfo({
+    required this.pageNumber,
+    required this.isDark,
+    required this.visible,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!visible) return const SizedBox.shrink();
+
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: Container(
+          height: 22.h,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [Colors.black.withAlpha(90), Colors.transparent],
+            ),
+          ),
+          child: Center(
+            child: Text(
+              _toArabicNum(pageNumber),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11.sp,
+                fontFamily: 'Cairo',
+                shadows: const [Shadow(color: Colors.black54, blurRadius: 4)],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Hizb Banner (slides in when new hizb starts) ───
+
+class _HizbBanner extends StatefulWidget {
+  final int hizbNumber;
+  final VoidCallback onDismissed;
+
+  const _HizbBanner({
+    super.key,
+    required this.hizbNumber,
+    required this.onDismissed,
+  });
+
+  @override
+  State<_HizbBanner> createState() => _HizbBannerState();
+}
+
+class _HizbBannerState extends State<_HizbBanner>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, -1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+
+    _ctrl.forward();
+    Future.delayed(const Duration(milliseconds: 2500), _dismiss);
+  }
+
+  void _dismiss() async {
+    if (!mounted) return;
+    await _ctrl.reverse();
+    if (mounted) widget.onDismissed();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: FadeTransition(
+          opacity: _fade,
+          child: SlideTransition(
+            position: _slide,
+            child: Center(
+              child: Container(
+                margin: EdgeInsets.only(top: 36.h),
+                padding:
+                    EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xCC1B5E20),
+                  borderRadius: BorderRadius.circular(24.r),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black38, blurRadius: 8),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_stories_rounded,
+                        color: Colors.white70, size: 14.r),
+                    SizedBox(width: 6.w),
+                    Text(
+                      'الحزب ${_toArabicNum(widget.hizbNumber)}',
+                      textDirection: TextDirection.rtl,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.sp,
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Swipe Handles ───
 
 class _SwipeDownHandle extends StatelessWidget {
@@ -1121,15 +1410,20 @@ class _MushafPageWidget extends StatelessWidget {
 
         return ColoredBox(
           color: pageBg,
-          child: Padding(
-            padding: EdgeInsets.only(bottom: bottomInset),
-            child: QcfPage(
-              pageNumber: pageNumber,
-              theme: qcfTheme,
-              onTap: (surahNumber, verseNumber) =>
-                  _onVerseTap(ctx, surahNumber, verseNumber),
-              onLongPress: (surahNumber, verseNumber) =>
-                  _onVerseLongPress(ctx, surahNumber, verseNumber),
+          child: RepaintBoundary(
+            child: Transform.translate(
+              offset: Offset(0, -6.h),
+              child: Padding(
+                padding: EdgeInsets.only(bottom: bottomInset),
+                child: QcfPage(
+                  pageNumber: pageNumber,
+                  theme: qcfTheme,
+                  onTap: (surahNumber, verseNumber) =>
+                      _onVerseTap(ctx, surahNumber, verseNumber),
+                  onLongPress: (surahNumber, verseNumber) =>
+                      _onVerseLongPress(ctx, surahNumber, verseNumber),
+                ),
+              ),
             ),
           ),
         );
