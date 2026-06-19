@@ -12,6 +12,7 @@ class ReminderDef {
   final String bodyAr;
   final String channelId;
   final String channelNameAr;
+  final String? payload;
 
   const ReminderDef({
     required this.id,
@@ -19,6 +20,7 @@ class ReminderDef {
     required this.bodyAr,
     required this.channelId,
     required this.channelNameAr,
+    this.payload,
   });
 }
 
@@ -54,6 +56,15 @@ const _dhikrReminders = [
     channelNameAr: 'أذكار بعد الصلاة',
   ),
 ];
+
+const _kahfReminder = ReminderDef(
+  id: AppConstants.notifFridayKahf,
+  titleAr: '📖 سورة الكهف',
+  bodyAr: 'ليلة الجمعة — اقرأ سورة الكهف، نورٌ من جمعة إلى جمعة',
+  channelId: 'friday_kahf',
+  channelNameAr: 'قراءة سورة الكهف',
+  payload: 'quran:18',
+);
 
 const _reminders = [
   ReminderDef(
@@ -198,6 +209,54 @@ class RemindersService {
     }
   }
 
+  // ─── Schedule weekly reminder (e.g. Friday Surah Al-Kahf) ───
+  static Future<void> scheduleWeeklyAt({
+    required ReminderDef reminder,
+    required int weekday,   // DateTime.monday=1 … DateTime.friday=5 … DateTime.sunday=7
+    required int hour,
+    required int minute,
+    AndroidScheduleMode scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle,
+  }) async {
+    await _ensureChannel(reminder);
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    // Advance to the target weekday
+    while (scheduled.weekday != weekday) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+    // If it's already passed this week, shift to next occurrence
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 7));
+    }
+    final details = NotificationDetails(android: _androidDetails(reminder));
+    try {
+      await _plugin.zonedSchedule(
+        reminder.id,
+        reminder.titleAr,
+        reminder.bodyAr,
+        scheduled,
+        details,
+        androidScheduleMode: scheduleMode,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+        payload: reminder.payload,
+      );
+    } catch (_) {
+      try {
+        await _clearNotificationCache();
+        await _plugin.zonedSchedule(
+          reminder.id,
+          reminder.titleAr,
+          reminder.bodyAr,
+          scheduled,
+          details,
+          androidScheduleMode: scheduleMode,
+          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+          payload: reminder.payload,
+        );
+      } catch (_) {}
+    }
+  }
+
   // ─── Schedule at computed DateTime (qiyam, fajr sunnah) ───
   static Future<void> scheduleOnce({
     required ReminderDef reminder,
@@ -241,7 +300,8 @@ class RemindersService {
   }
 
   static Future<void> cancelAll() async {
-    for (final r in _reminders) {
+    final all = [..._reminders, _kahfReminder];
+    for (final r in all) {
       try {
         await _plugin.cancel(r.id);
       } catch (_) {
@@ -346,6 +406,7 @@ class RemindersService {
 
   // ─── Public accessor for reminder definitions ───
   static List<ReminderDef> get all => _reminders;
+  static ReminderDef get kahfDef => _kahfReminder;
   static ReminderDef byId(int id) => _reminders.firstWhere((r) => r.id == id);
 
   // Returns (hour, minute) relative to a base prayer time + offset.
@@ -366,6 +427,8 @@ class RemindersService {
     DateTime? asrTime,
     DateTime? maghribTime,
     DateTime? ishaTime,
+    int fridayKahfHour = 9,
+    int fridayKahfMinute = 0,
   }) async {
     await _clearNotificationCache();
     final mode = await _resolveMode();
@@ -441,6 +504,19 @@ class RemindersService {
           hour: h, minute: m, scheduleMode: mode);
     } else {
       await cancel(AppConstants.notifSalahAnnabi);
+    }
+
+    // سورة الكهف — يوم الجمعة (تذكير أسبوعي)
+    if (prefs[AppConstants.keyReminderFridayKahf] == true) {
+      await scheduleWeeklyAt(
+        reminder: _kahfReminder,
+        weekday: DateTime.friday,
+        hour: fridayKahfHour,
+        minute: fridayKahfMinute,
+        scheduleMode: mode,
+      );
+    } else {
+      await cancel(AppConstants.notifFridayKahf);
     }
   }
 

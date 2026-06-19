@@ -15,7 +15,7 @@ class DownloadSurah {
   Future<Either<Failure, String>> call(
     String identifier,
     int surahNum, {
-    void Function(double)? onProgress,
+    void Function(double progress, int receivedBytes)? onProgress,
   }) =>
       repository.downloadSurah(identifier, surahNum, onProgress: onProgress);
 }

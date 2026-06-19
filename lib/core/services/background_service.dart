@@ -10,9 +10,11 @@ import 'package:timezone/timezone.dart' as tz_local;
 import 'package:workmanager/workmanager.dart';
 import '../constants/app_constants.dart';
 import 'notification_service.dart';
+import 'widget_service.dart';
 
 const _kDailyRescheduleTask = 'daliya_daily_reschedule';
 const _kDownloadReciterTask  = 'daliya_download_reciter';
+const _kWidgetRefreshTask    = 'daliya_widget_refresh';
 
 // CDN paths — mirrors quran_audio_repository_impl.dart
 const _bgCdnPaths = <String, String>{
@@ -236,6 +238,45 @@ void callbackDispatcher() {
       return true;
     }
 
+    // ─── تحديث App Widgets دورياً بدون فتح التطبيق ───
+    // onUpdate() الأصلي في AppWidgetProvider لا يعيد الحساب — فقط يعيد رسم
+    // آخر صورة محفوظة. لذلك التحديث الفعلي للبيانات (الصلاة القادمة، القبلة،
+    // آية اليوم) يحتاج هذه المهمة الدورية لإعادة الحساب وتوليد صورة جديدة.
+    if (taskName == _kWidgetRefreshTask) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final lat = prefs.getDouble(AppConstants.keyLatitude);
+        final lng = prefs.getDouble(AppConstants.keyLongitude);
+        if (lat == null || lng == null) return true;
+
+        final prayerMap = _calcPrayers(lat, lng, prefs, DateTime.now());
+        final now = DateTime.now();
+        final upcoming = prayerMap.entries
+            .where((e) => e.value.isAfter(now))
+            .toList()
+          ..sort((a, b) => a.value.compareTo(b.value));
+        final next = upcoming.isNotEmpty ? upcoming.first : prayerMap.entries.last;
+        final minutesLeft = next.value.difference(now).inMinutes.clamp(0, 9999);
+
+        await WidgetService.updatePrayerWidget(
+          prayerTimes: prayerMap,
+          nextPrayer: next.key,
+          nextPrayerTime: next.value,
+          minutesLeft: minutesLeft,
+        );
+
+        final qibla = Qibla(Coordinates(lat, lng));
+        final cityName = prefs.getString(AppConstants.keyCityName) ?? '';
+        await WidgetService.updateQiblaWidget(
+          qiblaAngle: qibla.direction,
+          cityName: cityName,
+        );
+
+        await WidgetService.updateTodayAyah();
+      } catch (_) {}
+      return true;
+    }
+
     // ─── إعادة جدولة الصلوات يومياً ───
     if (taskName != _kDailyRescheduleTask) return true;
     try {
@@ -339,6 +380,21 @@ class BackgroundService {
       _kDailyRescheduleTask,
       _kDailyRescheduleTask,
       frequency: const Duration(hours: 24),
+      constraints: Constraints(
+        networkType: NetworkType.notRequired,
+        requiresBatteryNotLow: false,
+      ),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
+    );
+  }
+
+  static Future<void> scheduleWidgetRefresh() async {
+    // الحد الأدنى المسموح لـ WorkManager الدورية هو ١٥ دقيقة؛ نستخدم ٣٠ دقيقة
+    // مطابقة لـ updatePeriodMillis في ملفات XML الخاصة بالـ widgets.
+    await Workmanager().registerPeriodicTask(
+      _kWidgetRefreshTask,
+      _kWidgetRefreshTask,
+      frequency: const Duration(minutes: 30),
       constraints: Constraints(
         networkType: NetworkType.notRequired,
         requiresBatteryNotLow: false,

@@ -58,12 +58,13 @@ class QiblaLocalDatasource {
     final last = await Geolocator.getLastKnownPosition();
     if (last != null) return last;
 
+    // GPS فقط — LocationAccuracy.medium يعتمد غالباً على الشبكة/الخلية
+    // ولا يعمل بدون إنترنت.
     return Geolocator.getCurrentPosition(
-      locationSettings:
-          const LocationSettings(accuracy: LocationAccuracy.medium),
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     ).timeout(
-      const Duration(seconds: 15),
-      onTimeout: () => throw Exception('انتهت مهلة تحديد الموقع'),
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('انتهت مهلة GPS — تأكد أن GPS مفعّل وحاول في مكان مكشوف'),
     );
   }
 }

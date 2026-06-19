@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/constants/daily_verses.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/arabic_utils.dart';
 import '../../../../core/utils/hijri_date.dart';
@@ -36,8 +37,7 @@ class _HomeScaffold extends StatelessWidget {
       body: BlocBuilder<HomeCubit, HomeState>(
         builder: (context, state) {
           if (state is HomeLoading || state is HomeInitial) {
-            return _LoadingView(
-                onPickCity: () => showCityPicker(context));
+            return _LoadingView(onPickCity: () => showCityPicker(context));
           }
           if (state is HomeLocationDisabled) {
             return const _LocationDisabledView();
@@ -79,8 +79,7 @@ class _LoadingView extends StatelessWidget {
               SizedBox(height: 16.h),
               Text(
                 'جارٍ تحديد موقعك...',
-                style:
-                    TextStyle(fontSize: 14.sp, color: colors.textSecondary),
+                style: TextStyle(fontSize: 14.sp, color: colors.textSecondary),
               ),
               SizedBox(height: 28.h),
               SizedBox(
@@ -94,7 +93,8 @@ class _LoadingView extends StatelessWidget {
                     side: const BorderSide(color: AppColors.primary),
                     padding: EdgeInsets.symmetric(vertical: 13.h),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r)),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
                   ),
                 ),
               ),
@@ -124,10 +124,11 @@ class _ErrorView extends StatelessWidget {
             children: [
               Icon(Icons.gps_off, size: 48.r, color: colors.textSecondary),
               SizedBox(height: 16.h),
-              Text(message,
-                  style:
-                      TextStyle(fontSize: 14.sp, color: colors.textSecondary),
-                  textAlign: TextAlign.center),
+              Text(
+                message,
+                style: TextStyle(fontSize: 14.sp, color: colors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
               SizedBox(height: 24.h),
               SizedBox(
                 width: double.infinity,
@@ -140,7 +141,8 @@ class _ErrorView extends StatelessWidget {
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 13.h),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r)),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
                   ),
                 ),
               ),
@@ -156,7 +158,8 @@ class _ErrorView extends StatelessWidget {
                     side: const BorderSide(color: AppColors.primary),
                     padding: EdgeInsets.symmetric(vertical: 13.h),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r)),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
                   ),
                 ),
               ),
@@ -190,20 +193,29 @@ class _LocationDisabledView extends StatelessWidget {
                   color: AppColors.primary.withAlpha(25),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.location_off_outlined,
-                    size: 40.r, color: AppColors.primary),
+                child: Icon(
+                  Icons.location_off_outlined,
+                  size: 40.r,
+                  color: AppColors.primary,
+                ),
               ),
               SizedBox(height: 20.h),
-              Text('الموقع الجغرافي معطّل',
-                  style: TextStyle(
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.bold,
-                      color: colors.textPrimary)),
+              Text(
+                'الموقع الجغرافي معطّل',
+                style: TextStyle(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.bold,
+                  color: colors.textPrimary,
+                ),
+              ),
               SizedBox(height: 10.h),
               Text(
                 'يحتاج التطبيق إلى الموقع الجغرافي لحساب أوقات الصلاة.\nيرجى تفعيل الموقع الجغرافي في إعدادات الهاتف.',
                 style: TextStyle(
-                    fontSize: 14.sp, color: colors.textSecondary, height: 1.6),
+                  fontSize: 14.sp,
+                  color: colors.textSecondary,
+                  height: 1.6,
+                ),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 28.h),
@@ -218,22 +230,28 @@ class _LocationDisabledView extends StatelessWidget {
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 14.h),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r)),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
                   ),
                 ),
               ),
               SizedBox(height: 12.h),
               TextButton(
                 onPressed: () => context.read<HomeCubit>().load(),
-                child: Text('تحديث بعد التفعيل',
-                    style:
-                        TextStyle(fontSize: 14.sp, color: AppColors.primary)),
+                child: Text(
+                  'تحديث بعد التفعيل',
+                  style: TextStyle(fontSize: 14.sp, color: AppColors.primary),
+                ),
               ),
               TextButton(
                 onPressed: () => showCityPicker(context),
-                child: Text('تحديد المدينة يدوياً',
-                    style: TextStyle(
-                        fontSize: 14.sp, color: colors.textSecondary)),
+                child: Text(
+                  'تحديد المدينة يدوياً',
+                  style: TextStyle(
+                    fontSize: 14.sp,
+                    color: colors.textSecondary,
+                  ),
+                ),
               ),
             ],
           ),
@@ -284,8 +302,7 @@ class _LoadedView extends StatelessWidget {
           SliverPadding(
             padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 0),
             sliver: SliverToBoxAdapter(
-              child: _TodayPrayerTimesCard(
-                  prayerTimes: prayerTimes, now: now),
+              child: _TodayPrayerTimesCard(prayerTimes: prayerTimes, now: now),
             ),
           ),
           SliverToBoxAdapter(child: SizedBox(height: 32.h)),
@@ -358,15 +375,18 @@ class _GreenHeader extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.location_on_outlined,
-                        size: 12.r,
-                        color: Colors.white.withAlpha(160)),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 12.r,
+                      color: Colors.white.withAlpha(160),
+                    ),
                     SizedBox(width: 3.w),
                     Text(
                       prayerTimes.cityName,
                       style: TextStyle(
-                          fontSize: 12.sp,
-                          color: Colors.white.withAlpha(160)),
+                        fontSize: 12.sp,
+                        color: Colors.white.withAlpha(160),
+                      ),
                     ),
                   ],
                 ),
@@ -445,8 +465,9 @@ class _NextPrayerBox extends StatelessWidget {
                         Text(
                           'الصلاة القادمة',
                           style: TextStyle(
-                              fontSize: 11.sp,
-                              color: Colors.white.withAlpha(160)),
+                            fontSize: 11.sp,
+                            color: Colors.white.withAlpha(160),
+                          ),
                         ),
                         SizedBox(height: 2.h),
                         Text(
@@ -468,8 +489,9 @@ class _NextPrayerBox extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: _progress(),
                     backgroundColor: Colors.white.withAlpha(40),
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(AppColors.gold),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.gold,
+                    ),
                     minHeight: 5.h,
                   ),
                 ),
@@ -477,7 +499,9 @@ class _NextPrayerBox extends StatelessWidget {
                 Text(
                   _countdown(),
                   style: TextStyle(
-                      fontSize: 12.sp, color: Colors.white.withAlpha(200)),
+                    fontSize: 12.sp,
+                    color: Colors.white.withAlpha(200),
+                  ),
                 ),
               ],
             ),
@@ -490,13 +514,15 @@ class _AllDoneTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(Icons.nights_stay_outlined,
-            size: 24.r, color: Colors.white.withAlpha(180)),
+        Icon(
+          Icons.nights_stay_outlined,
+          size: 24.r,
+          color: Colors.white.withAlpha(180),
+        ),
         SizedBox(width: 10.w),
         Text(
           'انتهت صلوات اليوم — ابدأ غداً بالفجر',
-          style:
-              TextStyle(fontSize: 14.sp, color: Colors.white.withAlpha(200)),
+          style: TextStyle(fontSize: 14.sp, color: Colors.white.withAlpha(200)),
         ),
       ],
     );
@@ -624,38 +650,10 @@ class _QuickCard extends StatelessWidget {
 class _VerseOfDayCard extends StatelessWidget {
   const _VerseOfDayCard();
 
-  static final _verses = [
-    ('وَنُنَزِّلُ مِنَ الْقُرْآنِ مَا هُوَ شِفَاءٌ وَرَحْمَةٌ لِّلْمُؤْمِنِينَ', 'الإسراء', 82),
-    ('إِنَّ مَعَ الْعُسْرِ يُسْرًا', 'الشرح', 6),
-    ('وَاللَّهُ يُحِبُّ الصَّابِرِينَ', 'آل عمران', 146),
-    ('وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ', 'الطلاق', 3),
-    ('اللَّهُ نُورُ السَّمَاوَاتِ وَالْأَرْضِ', 'النور', 35),
-    ('فَإِنَّ مَعَ الْعُسْرِ يُسْرًا', 'الشرح', 5),
-    ('وَإِذَا سَأَلَكَ عِبَادِي عَنِّي فَإِنِّي قَرِيبٌ', 'البقرة', 186),
-    ('حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ', 'آل عمران', 173),
-    ('وَبِالْأَسْحَارِ هُمْ يَسْتَغْفِرُونَ', 'الذاريات', 18),
-    ('الرَّحْمَٰنُ عَلَّمَ الْقُرْآنَ', 'الرحمن', 1),
-    ('قُلْ هُوَ اللَّهُ أَحَدٌ', 'الإخلاص', 1),
-    ('وَلَذِكْرُ اللَّهِ أَكْبَرُ', 'العنكبوت', 45),
-    ('رَبَّنَا لَا تُزِغْ قُلُوبَنَا بَعْدَ إِذْ هَدَيْتَنَا', 'آل عمران', 8),
-    ('يَا أَيُّهَا الَّذِينَ آمَنُوا اسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ', 'البقرة', 153),
-    ('وَقُل رَّبِّ زِدْنِي عِلْمًا', 'طه', 114),
-    ('إِنَّ اللَّهَ مَعَ الصَّابِرِينَ', 'البقرة', 153),
-    ('وَعَسَىٰ أَن تَكْرَهُوا شَيْئًا وَهُوَ خَيْرٌ لَّكُمْ', 'البقرة', 216),
-    ('رَبِّ اشْرَحْ لِي صَدْرِي وَيَسِّرْ لِي أَمْرِي', 'طه', 25),
-    ('إِنَّ اللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا مَا بِأَنفُسِهِمْ', 'الرعد', 11),
-    ('وَمَا أُوتِيتُم مِّنَ الْعِلْمِ إِلَّا قَلِيلًا', 'الإسراء', 85),
-    ('فَاذْكُرُونِي أَذْكُرْكُمْ', 'البقرة', 152),
-    ('وَتَوَكَّلْ عَلَى اللَّهِ وَكَفَىٰ بِاللَّهِ وَكِيلًا', 'النساء', 81),
-    ('أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ', 'الرعد', 28),
-    ('رَبَّنَا آتِنَا فِي الدُّنْيَا حَسَنَةً وَفِي الْآخِرَةِ حَسَنَةً', 'البقرة', 201),
-    ('وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا', 'الطلاق', 2),
-    ('يُرِيدُ اللَّهُ بِكُمُ الْيُسْرَ وَلَا يُرِيدُ بِكُمُ الْعُسْرَ', 'البقرة', 185),
-    ('وَلَا تَيْأَسُوا مِن رَّوْحِ اللَّهِ', 'يوسف', 87),
-    ('إِنَّ الصَّلَاةَ تَنْهَىٰ عَنِ الْفَحْشَاءِ وَالْمُنكَرِ', 'العنكبوت', 45),
-    ('وَإِن تَعُدُّوا نِعْمَةَ اللَّهِ لَا تُحْصُوهَا', 'النحل', 18),
-    ('اقْرَأْ بِاسْمِ رَبِّكَ الَّذِي خَلَقَ', 'العلق', 1),
-  ];
+  // كانت هذه قائمة محلية مستقلة عن قائمة widget_service.dart (نفس الطول،
+  // محتوى مختلف الترتيب) فكانت "آية اليوم" تختلف بين داخل التطبيق والـ
+  // App Widget لنفس اليوم — استبدلت بمصدر واحد مشترك (dailyVerses).
+  static final _verses = dailyVerses;
 
   @override
   Widget build(BuildContext context) {
@@ -692,16 +690,14 @@ class _VerseOfDayCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                 decoration: BoxDecoration(
                   color: AppColors.gold.withAlpha(30),
                   borderRadius: BorderRadius.circular(20.r),
                 ),
                 child: Text(
                   'سورة $surahName — ${toArabicNumerals(ayahId.toString())}',
-                  style: TextStyle(
-                      fontSize: 11.sp, color: AppColors.gold),
+                  style: TextStyle(fontSize: 11.sp, color: AppColors.gold),
                 ),
               ),
             ],
@@ -738,9 +734,10 @@ class _AdhkarCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withAlpha(10),
-              blurRadius: 8,
-              offset: const Offset(0, 2)),
+            color: Colors.black.withAlpha(10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -820,9 +817,7 @@ class _AdhkarButton extends StatelessWidget {
       child: GestureDetector(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => ZikrReaderPage(category: category),
-          ),
+          MaterialPageRoute(builder: (_) => ZikrReaderPage(category: category)),
         ),
         child: Container(
           padding: EdgeInsets.symmetric(vertical: 14.h),
@@ -836,10 +831,7 @@ class _AdhkarButton extends StatelessWidget {
               Container(
                 width: 40.r,
                 height: 40.r,
-                decoration: BoxDecoration(
-                  color: bg,
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
                 child: Icon(icon, color: color, size: 20.r),
               ),
               SizedBox(height: 8.h),
@@ -866,8 +858,7 @@ class _TodayPrayerTimesCard extends StatelessWidget {
   final PrayerTimesEntity prayerTimes;
   final DateTime now;
 
-  const _TodayPrayerTimesCard(
-      {required this.prayerTimes, required this.now});
+  const _TodayPrayerTimesCard({required this.prayerTimes, required this.now});
 
   @override
   Widget build(BuildContext context) {
@@ -888,9 +879,10 @@ class _TodayPrayerTimesCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withAlpha(10),
-              blurRadius: 8,
-              offset: const Offset(0, 2)),
+            color: Colors.black.withAlpha(10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -962,8 +954,8 @@ class _PrayerChip extends StatelessWidget {
     final textColor = isNext
         ? AppColors.primary
         : isPast
-            ? colors.textSecondary
-            : colors.textPrimary;
+        ? colors.textSecondary
+        : colors.textPrimary;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
       decoration: BoxDecoration(
@@ -1018,58 +1010,75 @@ class CityPickerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    return Container(
-      decoration: BoxDecoration(
+    // ListTile paints its background/ink splashes on the nearest Material
+    // ancestor — a plain Container with a background color hides them.
+    return ClipRRect(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      child: Material(
         color: colors.card,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-      ),
-      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 32.h),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40.w,
-            height: 4.h,
-            decoration: BoxDecoration(
-                color: colors.divider,
-                borderRadius: BorderRadius.circular(2.r)),
-          ),
-          SizedBox(height: 16.h),
-          Text(
-            'اختر مدينتك',
-            style: TextStyle(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.bold,
-                color: colors.textPrimary),
-          ),
-          SizedBox(height: 12.h),
-          Flexible(
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: _kCities.length,
-              separatorBuilder: (context, i) =>
-                  Divider(height: 1, color: colors.divider),
-              itemBuilder: (_, i) {
-                final city = _kCities[i];
-                return ListTile(
-                  dense: true,
-                  leading: Icon(Icons.location_on_outlined,
-                      size: 20.r, color: AppColors.primary),
-                  title: Text(city.name,
-                      style: TextStyle(
-                          fontSize: 15.sp, color: colors.textPrimary)),
-                  subtitle: Text(city.country,
-                      style: TextStyle(
-                          fontSize: 12.sp, color: colors.textSecondary)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    cubit.setCity(city.lat, city.lng, city.name);
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 32.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40.w,
+                height: 4.h,
+                decoration: BoxDecoration(
+                  color: colors.divider,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                'اختر مدينتك',
+                style: TextStyle(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.bold,
+                  color: colors.textPrimary,
+                ),
+              ),
+              SizedBox(height: 12.h),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _kCities.length,
+                  separatorBuilder: (context, i) =>
+                      Divider(height: 1, color: colors.divider),
+                  itemBuilder: (_, i) {
+                    final city = _kCities[i];
+                    return ListTile(
+                      dense: true,
+                      leading: Icon(
+                        Icons.location_on_outlined,
+                        size: 20.r,
+                        color: AppColors.primary,
+                      ),
+                      title: Text(
+                        city.name,
+                        style: TextStyle(
+                          fontSize: 15.sp,
+                          color: colors.textPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        city.country,
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(context);
+                        cubit.setCity(city.lat, city.lng, city.name);
+                      },
+                    );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

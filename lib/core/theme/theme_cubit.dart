@@ -21,7 +21,7 @@ class ThemeCubit extends Cubit<ThemeState> {
       switch (prefs.getString(AppConstants.keyTheme)) {
         'dark' => ThemeMode.dark,
         'light' => ThemeMode.light,
-        _ => ThemeMode.system,
+        _ => ThemeMode.light,
       };
 
   void toggle() {

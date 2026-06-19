@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
@@ -83,6 +84,11 @@ class NotificationService {
   static final _plugin = FlutterLocalNotificationsPlugin();
   static bool _initialized = false;
 
+  // ─── Notification tap deep-link ───
+  static final _tapCtrl = StreamController<String?>.broadcast();
+  static Stream<String?> get tapStream => _tapCtrl.stream;
+  static String? pendingPayload;
+
   static const _bgChannelId = 'daliya_background';
   static const _bgChannelName = 'الخدمة في الخلفية';
 
@@ -108,7 +114,20 @@ class NotificationService {
 
     await _plugin.initialize(
       const InitializationSettings(android: android, iOS: ios),
+      onDidReceiveNotificationResponse: (response) {
+        final payload = response.payload;
+        if (payload != null && payload.isNotEmpty) {
+          pendingPayload = payload;
+          _tapCtrl.add(payload);
+        }
+      },
     );
+
+    // Check if the app was launched by tapping a notification
+    final launchDetails = await _plugin.getNotificationAppLaunchDetails();
+    if (launchDetails?.didNotificationLaunchApp == true) {
+      pendingPayload = launchDetails?.notificationResponse?.payload;
+    }
 
     // Default channel
     await _createNotificationChannel(soundId: 'default');

@@ -58,8 +58,8 @@ class QuranAudioRepositoryImpl implements QuranAudioRepository {
         jsonEncode(reciters.map((r) => r.toJson()).toList()),
       );
       return Right(reciters);
-    } catch (e) {
-      return Left(NetworkFailure(e.toString()));
+    } catch (_) {
+      return Left(NetworkFailure('تعذّر تحميل قائمة القرّاء، تحقق من الاتصال بالإنترنت'));
     }
   }
 
@@ -90,15 +90,15 @@ class QuranAudioRepositoryImpl implements QuranAudioRepository {
   Future<Either<Failure, String>> downloadSurah(
     String identifier,
     int surahNum, {
-    void Function(double progress)? onProgress,
+    void Function(double progress, int receivedBytes)? onProgress,
   }) async {
     try {
       final url = surahUrl(identifier, surahNum);
       final path =
           await _local.downloadSurah(url, identifier, surahNum, onProgress: onProgress);
       return Right(path);
-    } catch (e) {
-      return Left(NetworkFailure(e.toString()));
+    } catch (_) {
+      return Left(NetworkFailure('تعذّر تحميل السورة، تحقق من الاتصال بالإنترنت'));
     }
   }
 
@@ -113,4 +113,24 @@ class QuranAudioRepositoryImpl implements QuranAudioRepository {
   @override
   Future<void> deleteSurahDownload(String identifier, int surahNum) =>
       _local.delete(identifier, surahNum);
+
+  @override
+  Future<Either<Failure, String>> downloadAyah(
+      String identifier, int surahNum, int ayahNum) async {
+    try {
+      final url = ayahUrl(identifier, surahNum, ayahNum);
+      final path = await _local.downloadAyah(url, identifier, surahNum, ayahNum);
+      return Right(path);
+    } catch (_) {
+      return Left(NetworkFailure('تعذّر تحميل الآية'));
+    }
+  }
+
+  @override
+  Future<bool> isAyahDownloaded(String identifier, int surahNum, int ayahNum) =>
+      _local.isAyahDownloaded(identifier, surahNum, ayahNum);
+
+  @override
+  Future<String?> localAyahPath(String identifier, int surahNum, int ayahNum) =>
+      _local.localAyahPath(identifier, surahNum, ayahNum);
 }

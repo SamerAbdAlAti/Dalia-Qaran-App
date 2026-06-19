@@ -56,6 +56,7 @@ class AppConstants {
   static const int notifDuha = 24;
   static const int notifQuranReading = 25;
   static const int notifSalahAnnabi = 26;
+  static const int notifFridayKahf  = 27;
 
   // Dhikr Audio Reminder IDs — legacy single IDs (kept for cancel-on-migrate)
   static const int notifDhikrIstighfar = 30;
@@ -82,6 +83,9 @@ class AppConstants {
   static const String keyReminderQuranTime = 'reminder_quran_time';
   static const String keyReminderSalahAnnabi = 'reminder_salah_annabi';
   static const String keyReminderSalahAnnabiTime = 'reminder_salah_annabi_time';
+  static const String keyReminderFridayKahf       = 'reminder_friday_kahf';
+  static const String keyReminderFridayKahfHour   = 'reminder_friday_kahf_hour';
+  static const String keyReminderFridayKahfMinute = 'reminder_friday_kahf_minute';
 
   // Dhikr Audio Reminder keys
   static const String keyDhikrIstighfar         = 'dhikr_istighfar';
@@ -99,4 +103,11 @@ class AppConstants {
   static const String keyAudioSelectedReciter = 'quran_audio_selected_reciter';
   static const String keyAudioRecitersCache   = 'quran_audio_reciters_cache';
   static const String keyAudioFullDownload    = 'quran_audio_full_download';
+
+  // Quran appearance (Mushaf page colors / recitation highlight)
+  static const String keyQuranColorTheme = 'quran_color_theme';
+  static const String keyQuranHighlightColor = 'quran_highlight_color';
+
+  // Tafsir cache prefix — actual key is '$keyTafsirCachePrefix${surah}_$ayah'
+  static const String keyTafsirCachePrefix = 'tafsir_cache_';
 }

@@ -54,8 +54,11 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    
+
     // Explicit Room and WorkManager versions to fix androidx.work.impl.WorkDatabase_Impl issues
     implementation("androidx.work:work-runtime:2.9.1")
     implementation("androidx.room:room-runtime:2.6.1")
+
+    // MediaSession + MediaStyle notification (Quran audio player)
+    implementation("androidx.media:media:1.7.0")
 }

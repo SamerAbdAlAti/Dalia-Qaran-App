@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/injection_container.dart';
@@ -14,6 +15,7 @@ import '../../../../core/services/notification_service.dart';
 import '../../../../core/services/platform_service.dart';
 import '../../../../core/services/reminders_service.dart';
 import '../../../../core/state/font_scale_cubit.dart';
+import '../../../../core/state/quran_appearance_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/theme_cubit.dart';
 import '../../../home/domain/entities/prayer_times_entity.dart';
@@ -21,6 +23,7 @@ import '../../../home/presentation/cubit/home_cubit.dart';
 import '../../../home/presentation/pages/home_page.dart' show showCityPicker;
 import '../../../quran_audio/domain/entities/reciter_entity.dart';
 import '../../../quran_audio/presentation/cubit/quran_audio_cubit.dart';
+import '../../../quran_audio/presentation/widgets/download_choice_sheet.dart';
 
 // ─── Page ───
 
@@ -45,6 +48,8 @@ class _SettingsPageState extends State<SettingsPage> {
   late bool _remAdhkarMorning, _remAdhkarEvening, _remFajrSunnah,
       _remQiyam, _remDuha, _remQuran, _remSalahAnnabi;
   late int _remFajrSunnahMin;
+  late bool _remFridayKahf;
+  late int _remFridayKahfHour, _remFridayKahfMinute;
 
   // ─── Dhikr reminder state ───
   late bool _dhikrIstighfar, _dhikrSalawat, _dhikrTasbih, _dhikrPostPrayer;
@@ -77,7 +82,10 @@ class _SettingsPageState extends State<SettingsPage> {
       _remQiyam = p.getBool(AppConstants.keyReminderQiyam) ?? false;
       _remDuha = p.getBool(AppConstants.keyReminderDuha) ?? false;
       _remQuran = p.getBool(AppConstants.keyReminderQuran) ?? false;
-      _remSalahAnnabi = p.getBool(AppConstants.keyReminderSalahAnnabi) ?? false;
+      _remSalahAnnabi     = p.getBool(AppConstants.keyReminderSalahAnnabi) ?? false;
+      _remFridayKahf      = p.getBool(AppConstants.keyReminderFridayKahf) ?? false;
+      _remFridayKahfHour  = p.getInt(AppConstants.keyReminderFridayKahfHour) ?? 9;
+      _remFridayKahfMinute = p.getInt(AppConstants.keyReminderFridayKahfMinute) ?? 0;
 
       _dhikrIstighfar         = p.getBool(AppConstants.keyDhikrIstighfar) ?? false;
       _dhikrIstighfarInterval = p.getInt(AppConstants.keyDhikrIstighfarInterval) ?? 60;
@@ -114,13 +122,16 @@ class _SettingsPageState extends State<SettingsPage> {
         AppConstants.keyReminderDuha:          p.getBool(AppConstants.keyReminderDuha) ?? false,
         AppConstants.keyReminderQuran:         p.getBool(AppConstants.keyReminderQuran) ?? false,
         AppConstants.keyReminderSalahAnnabi:   p.getBool(AppConstants.keyReminderSalahAnnabi) ?? false,
+        AppConstants.keyReminderFridayKahf:    p.getBool(AppConstants.keyReminderFridayKahf) ?? false,
       },
-      fajrTime:    fajr,
-      sunriseTime: sunrise,
-      dhuhrTime:   dhuhr,
-      asrTime:     asr,
-      maghribTime: maghrib,
-      ishaTime:    isha,
+      fajrTime:         fajr,
+      sunriseTime:      sunrise,
+      dhuhrTime:        dhuhr,
+      asrTime:          asr,
+      maghribTime:      maghrib,
+      ishaTime:         isha,
+      fridayKahfHour:   p.getInt(AppConstants.keyReminderFridayKahfHour) ?? 9,
+      fridayKahfMinute: p.getInt(AppConstants.keyReminderFridayKahfMinute) ?? 0,
     );
   }
 
@@ -221,9 +232,27 @@ class _SettingsPageState extends State<SettingsPage> {
         case AppConstants.keyReminderDuha:           _remDuha = value;
         case AppConstants.keyReminderQuran:          _remQuran = value;
         case AppConstants.keyReminderSalahAnnabi:   _remSalahAnnabi = value;
+        case AppConstants.keyReminderFridayKahf:    _remFridayKahf = value;
       }
     });
     await _savePref(key, value);
+    await _scheduleReminders();
+  }
+
+  Future<void> _pickFridayKahfTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _remFridayKahfHour, minute: _remFridayKahfMinute),
+      helpText: 'وقت تذكير سورة الكهف يوم الجمعة',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _remFridayKahfHour   = picked.hour;
+      _remFridayKahfMinute = picked.minute;
+    });
+    final p = sl<SharedPreferences>();
+    await p.setInt(AppConstants.keyReminderFridayKahfHour, picked.hour);
+    await p.setInt(AppConstants.keyReminderFridayKahfMinute, picked.minute);
     await _scheduleReminders();
   }
 
@@ -343,6 +372,11 @@ Future<void> _checkPermissions() async {
                   _FontScaleCard(colors: colors),
                   SizedBox(height: 12.h),
 
+                  // ─── مظهر صفحة القرآن ───
+                  _SectionTitle(title: 'مظهر صفحة القرآن', colors: colors),
+                  _QuranAppearanceCard(colors: colors),
+                  SizedBox(height: 12.h),
+
                   // ─── تنبيهات الصلاة ───
                   _SectionTitle(title: 'تنبيهات الصلاة', colors: colors),
 
@@ -432,12 +466,16 @@ Future<void> _checkPermissions() async {
                         remDuha: _remDuha,
                         remQuran: _remQuran,
                         remSalahAnnabi: _remSalahAnnabi,
+                        remFridayKahf: _remFridayKahf,
+                        fridayKahfHour: _remFridayKahfHour,
+                        fridayKahfMinute: _remFridayKahfMinute,
                         onToggle: _toggleReminder,
                         onPickFajrSunnahMin: (min) async {
                           setState(() => _remFajrSunnahMin = min);
                           await _savePref(AppConstants.keyReminderFajrSunnahMin, min);
                           await _scheduleReminders();
                         },
+                        onPickFridayKahfTime: _pickFridayKahfTime,
                       );
                     },
                   ),
@@ -745,6 +783,148 @@ class _FontScaleCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ─── Quran Appearance Card (page colors + recitation highlight) ───
+
+class _QuranAppearanceCard extends StatelessWidget {
+  final AppColorScheme colors;
+  const _QuranAppearanceCard({required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    final appearance = context.watch<QuranAppearanceCubit>().state;
+    return Container(
+      decoration: _cardDecoration(colors),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('لون نص القرآن وخلفية الصفحة',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600)),
+          SizedBox(height: 12.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: QuranColorTheme.values
+                .map((t) => _ColorThemeSwatch(
+                      theme: t,
+                      selected: appearance.colorTheme == t,
+                      onTap: () => context
+                          .read<QuranAppearanceCubit>()
+                          .setColorTheme(t),
+                    ))
+                .toList(),
+          ),
+          SizedBox(height: 16.h),
+          Divider(height: 0.5, color: colors.divider),
+          SizedBox(height: 16.h),
+          Text('لون تمييز الآية أثناء التلاوة',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600)),
+          SizedBox(height: 12.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: RecitationHighlightColor.values
+                .map((c) => _HighlightColorSwatch(
+                      highlight: c,
+                      selected: appearance.highlightColor == c,
+                      onTap: () => context
+                          .read<QuranAppearanceCubit>()
+                          .setHighlightColor(c),
+                    ))
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ColorThemeSwatch extends StatelessWidget {
+  final QuranColorTheme theme;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ColorThemeSwatch(
+      {required this.theme, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 44.r,
+            height: 44.r,
+            decoration: BoxDecoration(
+              color: theme.pageBackground,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected ? AppColors.primary : Colors.black12,
+                width: selected ? 2.5 : 1,
+              ),
+            ),
+            child: Center(
+              child: Text('ا',
+                  style: TextStyle(
+                      color: theme.textColor,
+                      fontSize: 18.sp,
+                      fontFamily: 'ScheherazadeNew')),
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Text(theme.label,
+              style: TextStyle(fontSize: 10.sp, color: context.colors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+class _HighlightColorSwatch extends StatelessWidget {
+  final RecitationHighlightColor highlight;
+  final bool selected;
+  final VoidCallback onTap;
+  const _HighlightColorSwatch(
+      {required this.highlight, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 32.r,
+            height: 32.r,
+            decoration: BoxDecoration(
+              color: highlight.color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected ? AppColors.primary : Colors.black12,
+                width: selected ? 2.5 : 1,
+              ),
+            ),
+            child: selected
+                ? Icon(Icons.check, size: 16.r, color: Colors.black54)
+                : null,
+          ),
+          SizedBox(height: 4.h),
+          Text(highlight.label,
+              style: TextStyle(fontSize: 10.sp, color: context.colors.textSecondary)),
+        ],
+      ),
     );
   }
 }
@@ -1192,14 +1372,14 @@ class _BackgroundModeCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'التشغيل التلقائي (MIUI/شاومي)',
+                          'التشغيل التلقائي',
                           style: TextStyle(
                               color: colors.textPrimary,
                               fontSize: 13.sp,
                               fontWeight: FontWeight.w500),
                         ),
                         Text(
-                          'مطلوب على أجهزة شاومي لضمان وصول الإشعارات',
+                          'مطلوب على الجهاز  لضمان وصول الإشعارات',
                           style: TextStyle(
                               color: colors.textSecondary, fontSize: 11.sp),
                         ),
@@ -1559,8 +1739,11 @@ class _RemindersCard extends StatelessWidget {
   final bool remAdhkarMorning, remAdhkarEvening, remFajrSunnah,
       remQiyam, remDuha, remQuran, remSalahAnnabi;
   final int remFajrSunnahMin;
+  final bool remFridayKahf;
+  final int fridayKahfHour, fridayKahfMinute;
   final void Function(String key, bool value) onToggle;
   final void Function(int min) onPickFajrSunnahMin;
+  final VoidCallback onPickFridayKahfTime;
 
   const _RemindersCard({
     required this.colors,
@@ -1573,9 +1756,19 @@ class _RemindersCard extends StatelessWidget {
     required this.remDuha,
     required this.remQuran,
     required this.remSalahAnnabi,
+    required this.remFridayKahf,
+    required this.fridayKahfHour,
+    required this.fridayKahfMinute,
     required this.onToggle,
     required this.onPickFajrSunnahMin,
+    required this.onPickFridayKahfTime,
   });
+
+  static String _arabicNum(int n, {bool pad = false}) {
+    const d = ['٠','١','٢','٣','٤','٥','٦','٧','٨','٩'];
+    final s = pad ? n.toString().padLeft(2, '0') : n.toString();
+    return s.split('').map((c) => d[int.parse(c)]).join();
+  }
 
   // Formats DateTime as "٦:١٥ ص" using Arabic digits
   static String _timeLabel(DateTime? base, int offsetMin, String fallback) {
@@ -1585,7 +1778,13 @@ class _RemindersCard extends StatelessWidget {
     final m = t.minute;
     final period = h < 12 ? 'ص' : 'م';
     final displayH = h == 0 ? 12 : (h > 12 ? h - 12 : h);
-    return '$displayH:${m.toString().padLeft(2, '0')} $period';
+    return '${_arabicNum(displayH)}:${_arabicNum(m, pad: true)} $period';
+  }
+
+  static String _fixedTimeLabel(int hour, int minute) {
+    final period = hour < 12 ? 'ص' : 'م';
+    final displayH = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    return '${_arabicNum(displayH)}:${_arabicNum(minute, pad: true)} $period';
   }
 
   @override
@@ -1669,6 +1868,17 @@ class _RemindersCard extends StatelessWidget {
             enabled: remSalahAnnabi,
             timeLabel: _timeLabel(pt?.dhuhr, 15, '١٢:١٥ م'),
             onToggle: (v) => onToggle(AppConstants.keyReminderSalahAnnabi, v),
+          ),
+          _divider(colors),
+          _ReminderTile(
+            colors: colors,
+            emoji: '📖',
+            title: 'سورة الكهف — الجمعة',
+            subtitle: 'تذكير أسبوعي • اضغط على الإشعار لفتح السورة',
+            enabled: remFridayKahf,
+            timeLabel: _fixedTimeLabel(fridayKahfHour, fridayKahfMinute),
+            onToggle: (v) => onToggle(AppConstants.keyReminderFridayKahf, v),
+            onTimeTap: remFridayKahf ? onPickFridayKahfTime : null,
           ),
         ],
       ),
@@ -1943,12 +2153,15 @@ class _QuranAudioCardState extends State<_QuranAudioCard> {
   }
 
   void _showDownloadNow() {
+    // QuranAudioCubit is an app-wide singleton (provided in main.dart) —
+    // reuse it via BlocProvider.value so the download sheet shares the same
+    // cubit/player instance that's actually playing audio.
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => BlocProvider<QuranAudioCubit>(
-        create: (_) => sl<QuranAudioCubit>()..loadReciters(),
+      builder: (_) => BlocProvider<QuranAudioCubit>.value(
+        value: sl<QuranAudioCubit>(),
         child: const _DownloadNowSheet(),
       ),
     );
@@ -2033,6 +2246,21 @@ class _DownloadNowSheet extends StatefulWidget {
 class _DownloadNowSheetState extends State<_DownloadNowSheet> {
   List<ReciterEntity> _reciters = [];
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // The shared cubit may already have its reciters loaded from an earlier
+    // session — its RecitersLoaded state won't re-fire, so read the
+    // always-available getter directly instead of waiting on the listener.
+    _reciters = context.read<QuranAudioCubit>().reciters;
+    // If the initial app-startup fetch failed (e.g. no internet at launch)
+    // the list stays empty forever with no automatic retry — retry once
+    // when this sheet opens instead of showing a blank list.
+    if (_reciters.isEmpty) {
+      context.read<QuranAudioCubit>().loadReciters();
+    }
+  }
 
   Future<bool> _hasDownloads(String identifier) async {
     final dir = await getApplicationDocumentsDirectory();
@@ -2152,6 +2380,34 @@ class _DownloadNowSheetState extends State<_DownloadNowSheet> {
                     child: CircularProgressIndicator(color: AppColors.primary),
                   ),
                 )
+              else if (_reciters.isEmpty)
+                Padding(
+                  padding: EdgeInsets.all(32.r),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.cloud_off_outlined, color: colors.textSecondary, size: 32.r),
+                      SizedBox(height: 10.h),
+                      Text(
+                        'لا يوجد قراء متاحون، تحقق من الاتصال بالإنترنت',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: colors.textSecondary, fontSize: 13.sp),
+                      ),
+                      SizedBox(height: 14.h),
+                      ElevatedButton(
+                        onPressed: () =>
+                            context.read<QuranAudioCubit>().loadReciters(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10.r)),
+                        ),
+                        child: Text('إعادة المحاولة', style: TextStyle(fontSize: 13.sp)),
+                      ),
+                    ],
+                  ),
+                )
               else
                 Expanded(
                   child: ListView.separated(
@@ -2227,9 +2483,8 @@ class _DownloadNowSheetState extends State<_DownloadNowSheet> {
                                     : IconButton(
                                         icon: Icon(Icons.download_outlined,
                                             size: 22.r, color: AppColors.primary),
-                                        onPressed: () => context
-                                            .read<QuranAudioCubit>()
-                                            .downloadAllForReciter(reciter),
+                                        onPressed: () =>
+                                            showDownloadChoiceSheet(context, reciter),
                                       ),
                           ),
                           if (isThisDownloading)

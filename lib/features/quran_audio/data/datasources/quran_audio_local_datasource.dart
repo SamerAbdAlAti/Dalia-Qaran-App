@@ -18,7 +18,7 @@ class QuranAudioLocalDatasource {
     String url,
     String identifier,
     int surahNum, {
-    void Function(double progress)? onProgress,
+    void Function(double progress, int receivedBytes)? onProgress,
   }) async {
     final dir   = await _audioDir(identifier);
     final name  = surahNum.toString().padLeft(3, '0');
@@ -57,7 +57,7 @@ class QuranAudioLocalDatasource {
             in response.stream.timeout(const Duration(seconds: 60))) {
           sink.add(chunk);
           received += chunk.length;
-          if (total > 0) onProgress?.call(received / total);
+          if (total > 0) onProgress?.call(received / total, received);
         }
       }).timeout(const Duration(minutes: 8));
       await sink.flush();
@@ -90,5 +90,51 @@ class QuranAudioLocalDatasource {
     final dir = await _audioDir(identifier);
     final file = File('${dir.path}/${_fileName(surahNum)}');
     if (await file.exists()) await file.delete();
+  }
+
+  // ─── Per-ayah persistent downloads ("مقطعة") — separate from the
+  // temp-cache used for instant single-ayah playback in quran_audio_cubit.
+
+  Future<Directory> _ayahDir(String identifier) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final dir = Directory('${appDir.path}/quran_audio_ayahs/$identifier');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
+  String _ayahFileName(int surahNum, int ayahNum) =>
+      '${surahNum.toString().padLeft(3, '0')}_${ayahNum.toString().padLeft(3, '0')}.mp3';
+
+  Future<String> downloadAyah(
+      String url, String identifier, int surahNum, int ayahNum) async {
+    final dir = await _ayahDir(identifier);
+    final file = File('${dir.path}/${_ayahFileName(surahNum, ayahNum)}');
+    if (file.existsSync() && file.lengthSync() > 0) return file.path;
+
+    final response = await http.get(Uri.parse(url), headers: {
+      'User-Agent': 'Daliya/1.0 (Android; Quran App)',
+      'Accept': 'audio/mpeg, audio/*, */*',
+    }).timeout(const Duration(seconds: 30));
+
+    if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+      throw Exception('فشل تحميل الآية: ${response.statusCode}');
+    }
+    await file.writeAsBytes(response.bodyBytes);
+    return file.path;
+  }
+
+  Future<bool> isAyahDownloaded(
+      String identifier, int surahNum, int ayahNum) async {
+    final dir = await _ayahDir(identifier);
+    final file = File('${dir.path}/${_ayahFileName(surahNum, ayahNum)}');
+    return file.existsSync() && file.lengthSync() > 0;
+  }
+
+  Future<String?> localAyahPath(
+      String identifier, int surahNum, int ayahNum) async {
+    final dir = await _ayahDir(identifier);
+    final file = File('${dir.path}/${_ayahFileName(surahNum, ayahNum)}');
+    if (file.existsSync() && file.lengthSync() > 0) return file.path;
+    return null;
   }
 }

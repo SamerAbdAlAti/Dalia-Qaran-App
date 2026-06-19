@@ -5,7 +5,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../quran/presentation/cubit/mushaf_cubit.dart';
+import '../../domain/entities/reciter_entity.dart';
 import '../cubit/quran_audio_cubit.dart';
+import 'download_choice_sheet.dart';
 
 class ReciterPickerSheet extends StatefulWidget {
   const ReciterPickerSheet({super.key});
@@ -211,88 +213,10 @@ class _ReciterPickerSheetState extends State<ReciterPickerSheet> {
   }
 
   void _showDownloadSheet(BuildContext context, dynamic reciter) {
-    final audioCubit = context.read<QuranAudioCubit>();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => BlocProvider.value(
-        value: audioCubit,
-        child: _QuickDownloadSheet(reciter: reciter),
-      ),
-    );
-  }
-}
-
-// ─── Quick download mini sheet ───
-
-class _QuickDownloadSheet extends StatelessWidget {
-  final dynamic reciter;
-  const _QuickDownloadSheet({required this.reciter});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.colors.card,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-        border: Border(top: BorderSide(color: AppColors.gold, width: 1.5)),
-      ),
-      padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 32.h),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: Container(
-              width: 36.w,
-              height: 4.h,
-              decoration: BoxDecoration(
-                color: Colors.grey.withAlpha(80),
-                borderRadius: BorderRadius.circular(2.r),
-              ),
-            ),
-          ),
-          SizedBox(height: 16.h),
-          Text(
-            'تحميل سورة الفاتحة كمثال',
-            style: TextStyle(
-              color: context.colors.textPrimary,
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            reciter.arabicName as String,
-            style: TextStyle(
-              color: context.colors.textSecondary,
-              fontSize: 13.sp,
-            ),
-          ),
-          SizedBox(height: 20.h),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop();
-                context.read<QuranAudioCubit>().downloadSurah(1);
-              },
-              icon: Icon(Icons.download, size: 18.r),
-              label: Text(
-                'تحميل',
-                style: TextStyle(fontSize: 14.sp),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(vertical: 12.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    showDownloadChoiceSheet(
+      context,
+      reciter as ReciterEntity,
+      onAfterStart: () => Navigator.of(context).pop(), // close reciter picker too
     );
   }
 }

@@ -93,6 +93,18 @@
                 android:resource="@xml/file_provider_paths"/>
         </provider>
 
+        <!-- QuranMediaReceiver: handles play/pause/next/prev from the media player notification -->
+        <receiver
+            android:name=".QuranMediaReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="app.daliya.quran.MEDIA_PLAY"/>
+                <action android:name="app.daliya.quran.MEDIA_PAUSE"/>
+                <action android:name="app.daliya.quran.MEDIA_NEXT"/>
+                <action android:name="app.daliya.quran.MEDIA_PREV"/>
+            </intent-filter>
+        </receiver>
+
         <!-- DhikrAlarmReceiver: native self-scheduling dhikr alarms (one alarm per type, FIXED notification ID) -->
         <receiver
             android:name=".DhikrAlarmReceiver"

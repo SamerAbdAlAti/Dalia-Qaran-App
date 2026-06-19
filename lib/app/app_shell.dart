@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../core/di/injection_container.dart';
+import '../core/services/media_notification_service.dart';
 import '../core/theme/app_colors.dart';
 import '../features/home/presentation/cubit/home_cubit.dart';
 import '../features/home/presentation/pages/home_page.dart';
@@ -21,6 +23,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
   late final List<Widget> _pages;
+  StreamSubscription<int>? _mediaOpenSub;
 
   @override
   void initState() {
@@ -32,11 +35,35 @@ class _AppShellState extends State<AppShell> {
       const QiblaPage(),
       const SettingsPage(),
     ];
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Handle cold-start: notification tapped before AppShell was mounted
+      final pending = MediaNotificationService.pendingOpenSurahNum;
+      if (pending != null && pending > 0 && mounted) {
+        MediaNotificationService.pendingOpenSurahNum = null;
+        _openQuranAtSurah(pending);
+      }
+      // Handle warm-start: notification tapped while app was in background
+      _mediaOpenSub = MediaNotificationService.onOpen.listen((surahNum) {
+        if (mounted) _openQuranAtSurah(surahNum);
+      });
+    });
+  }
+
+  void _openQuranAtSurah(int surahNum) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MushafViewerPage(surahId: surahNum)),
+    );
+  }
+
+  @override
+  void dispose() {
+    _mediaOpenSub?.cancel();
+    super.dispose();
   }
 
   void _navigateTo(int index) {
     if (index == 1) {
-      // Push MushafViewerPage directly — it reads lastReadPage from its cubit
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const MushafViewerPage()),
       );

@@ -7,8 +7,13 @@ import 'reciter_picker_sheet.dart';
 
 class AudioPlayerSheet extends StatelessWidget {
   final List<String> surahNames;
+  final VoidCallback? onGoToCurrentPage;
 
-  const AudioPlayerSheet({required this.surahNames, super.key});
+  const AudioPlayerSheet({
+    required this.surahNames,
+    this.onGoToCurrentPage,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +25,11 @@ class AudioPlayerSheet extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        return _PlayerSheetContent(state: state, surahNames: surahNames);
+        return _PlayerSheetContent(
+          state: state,
+          surahNames: surahNames,
+          onGoToCurrentPage: onGoToCurrentPage,
+        );
       },
     );
   }
@@ -29,8 +38,13 @@ class AudioPlayerSheet extends StatelessWidget {
 class _PlayerSheetContent extends StatelessWidget {
   final QuranAudioState state;
   final List<String> surahNames;
+  final VoidCallback? onGoToCurrentPage;
 
-  const _PlayerSheetContent({required this.state, required this.surahNames});
+  const _PlayerSheetContent({
+    required this.state,
+    required this.surahNames,
+    this.onGoToCurrentPage,
+  });
 
   String _surahName(int surahNum) {
     if (surahNum >= 1 && surahNum <= surahNames.length) {
@@ -90,10 +104,13 @@ class _PlayerSheetContent extends StatelessWidget {
 
     final totalSecs = duration?.inSeconds ?? 0;
     final currentSecs = position.inSeconds.clamp(0, totalSecs > 0 ? totalSecs : 1);
+    final bgColor = isDark ? const Color(0xFF1A2E19) : Colors.white;
+    final textPrimary = isDark ? const Color(0xFFEBD9A6) : AppColors.textPrimaryLight;
+    final textSecondary = isDark ? Colors.white54 : Colors.black45;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A2E19) : Colors.white,
+        color: bgColor,
         borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
         boxShadow: [
           BoxShadow(
@@ -102,66 +119,129 @@ class _PlayerSheetContent extends StatelessWidget {
             offset: const Offset(0, -2),
           ),
         ],
-        border: Border(
-          top: BorderSide(color: AppColors.gold, width: 1.5),
-        ),
+        border: Border(top: BorderSide(color: AppColors.gold, width: 1.5)),
       ),
-      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 16.h),
+      padding: EdgeInsets.fromLTRB(12.w, 10.h, 16.w, 12.h),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Row 1: Close + Reciter + تغيير
+          // ── Row 1: Close · Speed · [Go to page] · Reciter ─────────────
           Row(
             children: [
+              // Close / stop
               GestureDetector(
                 onTap: () => context.read<QuranAudioCubit>().stop(),
                 child: Padding(
-                  padding: EdgeInsets.only(left: 4.w, right: 8.w),
-                  child: Icon(Icons.close,
-                      size: 20.r,
-                      color: isDark ? Colors.white54 : Colors.black45),
+                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 4.h),
+                  child: Icon(Icons.close, size: 20.r, color: textSecondary),
                 ),
               ),
-              GestureDetector(
-                onTap: () => _showReciterPicker(context),
-                child: Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withAlpha(20),
-                    borderRadius: BorderRadius.circular(8.r),
-                    border:
-                        Border.all(color: AppColors.primary.withAlpha(60)),
-                  ),
-                  child: Text(
-                    'تغيير',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w600,
+              SizedBox(width: 4.w),
+              // Speed badge — cycles through preset speeds
+              ValueListenableBuilder<double>(
+                valueListenable:
+                    context.read<QuranAudioCubit>().playbackSpeedNotifier,
+                builder: (_, speed, _) => GestureDetector(
+                  onTap: () =>
+                      context.read<QuranAudioCubit>().cyclePlaybackSpeed(),
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: speed != 1.0
+                          ? AppColors.primary.withAlpha(25)
+                          : (isDark
+                              ? Colors.white.withAlpha(15)
+                              : Colors.black.withAlpha(10)),
+                      borderRadius: BorderRadius.circular(6.r),
+                      border: Border.all(
+                        color: speed != 1.0
+                            ? AppColors.primary.withAlpha(80)
+                            : (isDark
+                                ? Colors.white.withAlpha(30)
+                                : Colors.black.withAlpha(20)),
+                      ),
+                    ),
+                    child: Text(
+                      _speedLabel(speed),
+                      style: TextStyle(
+                        color: speed != 1.0 ? AppColors.primary : textSecondary,
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Cairo',
+                      ),
                     ),
                   ),
                 ),
               ),
-              const Spacer(),
-              Flexible(
-                child: Text(
-                  reciterName,
-                  textAlign: TextAlign.right,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: isDark
-                        ? const Color(0xFFEBD9A6)
-                        : AppColors.textPrimaryLight,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w600,
+              // "Go to current page" button — only when playing
+              if (onGoToCurrentPage != null && !isDownloading) ...[
+                SizedBox(width: 6.w),
+                GestureDetector(
+                  onTap: onGoToCurrentPage,
+                  child: Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 7.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withAlpha(15)
+                          : Colors.black.withAlpha(10),
+                      borderRadius: BorderRadius.circular(6.r),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withAlpha(30)
+                            : Colors.black.withAlpha(20),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.my_location_rounded,
+                            size: 11.r, color: textSecondary),
+                        SizedBox(width: 3.w),
+                        Text(
+                          'الصفحة',
+                          style: TextStyle(
+                            color: textSecondary,
+                            fontSize: 10.sp,
+                            fontFamily: 'Cairo',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+              ],
+              const Spacer(),
+              // Reciter name — tappable to change
+              GestureDetector(
+                onTap: () => _showReciterPicker(context),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.keyboard_arrow_down_rounded,
+                        size: 18.r, color: AppColors.primary),
+                    SizedBox(width: 2.w),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: 130.w),
+                      child: Text(
+                        reciterName,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: textPrimary,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Cairo',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          SizedBox(height: 4.h),
-          // Row 2: Surah / Ayah info
+          SizedBox(height: 3.h),
+          // ── Row 2: Surah / Ayah info ──────────────────────────────────
           Align(
             alignment: AlignmentDirectional.centerEnd,
             child: Text(
@@ -175,24 +255,21 @@ class _PlayerSheetContent extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(height: 8.h),
-          // Row 3: Progress slider
+          SizedBox(height: 6.h),
+          // ── Row 3: Progress slider (surah mode only) ──────────────────
           if (!isDownloading && isSurah) ...[
             Row(
               children: [
                 Text(
                   _formatDuration(duration ?? Duration.zero),
-                  style: TextStyle(
-                    color: isDark ? Colors.white54 : Colors.black45,
-                    fontSize: 10.sp,
-                  ),
+                  style: TextStyle(color: textSecondary, fontSize: 10.sp),
                 ),
                 Expanded(
                   child: SliderTheme(
                     data: SliderThemeData(
                       trackHeight: 2.h,
-                      thumbShape: RoundSliderThumbShape(
-                          enabledThumbRadius: 6.r),
+                      thumbShape:
+                          RoundSliderThumbShape(enabledThumbRadius: 6.r),
                       overlayShape:
                           RoundSliderOverlayShape(overlayRadius: 12.r),
                       activeTrackColor: AppColors.primary,
@@ -201,9 +278,7 @@ class _PlayerSheetContent extends StatelessWidget {
                       overlayColor: AppColors.primary.withAlpha(30),
                     ),
                     child: Slider(
-                      value: totalSecs > 0
-                          ? currentSecs.toDouble()
-                          : 0.0,
+                      value: totalSecs > 0 ? currentSecs.toDouble() : 0.0,
                       min: 0,
                       max: totalSecs > 0 ? totalSecs.toDouble() : 1.0,
                       onChanged: totalSecs > 0
@@ -216,22 +291,20 @@ class _PlayerSheetContent extends StatelessWidget {
                 ),
                 Text(
                   _formatDuration(position),
-                  style: TextStyle(
-                    color: isDark ? Colors.white54 : Colors.black45,
-                    fontSize: 10.sp,
-                  ),
+                  style: TextStyle(color: textSecondary, fontSize: 10.sp),
                 ),
               ],
             ),
           ],
-          // Row 4: Controls
+          // ── Row 4: Controls ───────────────────────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Repeat button — cycles none ↔ repeatOne
+              // Repeat
               ValueListenableBuilder<AudioRepeatMode>(
-                valueListenable: context.read<QuranAudioCubit>().repeatModeNotifier,
-                builder: (_, mode, child) => _ControlBtn(
+                valueListenable:
+                    context.read<QuranAudioCubit>().repeatModeNotifier,
+                builder: (_, mode, _) => _ControlBtn(
                   icon: mode == AudioRepeatMode.repeatOne
                       ? Icons.repeat_one
                       : Icons.repeat,
@@ -241,14 +314,18 @@ class _PlayerSheetContent extends StatelessWidget {
                           : AudioRepeatMode.none),
                   color: mode == AudioRepeatMode.repeatOne
                       ? AppColors.primary
-                      : (isDark ? Colors.white38 : Colors.black38),
+                      : textSecondary,
+                  isDark: isDark,
                 ),
               ),
-              // Previous ayah / surah
+              // Skip previous
               _ControlBtn(
                 icon: Icons.skip_previous_rounded,
-                onTap: isDownloading ? null : () => context.read<QuranAudioCubit>().playPrev(),
-                color: isDark ? const Color(0xFFEBD9A6) : AppColors.textPrimaryLight,
+                onTap: isDownloading
+                    ? null
+                    : () => context.read<QuranAudioCubit>().playPrev(),
+                color: textPrimary,
+                isDark: isDark,
               ),
               if (isSurah) ...[
                 // Seek back 10s
@@ -257,18 +334,17 @@ class _PlayerSheetContent extends StatelessWidget {
                   onTap: () {
                     final s = state;
                     if (s is QuranAudioPlaying) {
-                      final newPos = s.position - const Duration(seconds: 10);
-                      context
-                          .read<QuranAudioCubit>()
-                          .seek(newPos < Duration.zero ? Duration.zero : newPos);
+                      final newPos =
+                          s.position - const Duration(seconds: 10);
+                      context.read<QuranAudioCubit>().seek(
+                          newPos < Duration.zero ? Duration.zero : newPos);
                     }
                   },
-                  color: isDark
-                      ? const Color(0xFFEBD9A6)
-                      : AppColors.textPrimaryLight,
+                  color: textPrimary,
+                  isDark: isDark,
                 ),
               ],
-              // Play/Pause
+              // Play / Pause / Loading
               if (isBuffering || isDownloading)
                 SizedBox(
                   width: 44.r,
@@ -282,11 +358,7 @@ class _PlayerSheetContent extends StatelessWidget {
                 GestureDetector(
                   onTap: () {
                     final cubit = context.read<QuranAudioCubit>();
-                    if (isPlaying) {
-                      cubit.pause();
-                    } else {
-                      cubit.resume();
-                    }
+                    isPlaying ? cubit.pause() : cubit.resume();
                   },
                   child: Container(
                     width: 44.r,
@@ -309,25 +381,28 @@ class _PlayerSheetContent extends StatelessWidget {
                   onTap: () {
                     final s = state;
                     if (s is QuranAudioPlaying && s.duration != null) {
-                      final newPos = s.position + const Duration(seconds: 10);
+                      final newPos =
+                          s.position + const Duration(seconds: 10);
                       final max = s.duration!;
                       context
                           .read<QuranAudioCubit>()
                           .seek(newPos > max ? max : newPos);
                     }
                   },
-                  color: isDark
-                      ? const Color(0xFFEBD9A6)
-                      : AppColors.textPrimaryLight,
+                  color: textPrimary,
+                  isDark: isDark,
                 ),
               ],
-              // Next ayah / surah
+              // Skip next
               _ControlBtn(
                 icon: Icons.skip_next_rounded,
-                onTap: isDownloading ? null : () => context.read<QuranAudioCubit>().playNext(),
-                color: isDark ? const Color(0xFFEBD9A6) : AppColors.textPrimaryLight,
+                onTap: isDownloading
+                    ? null
+                    : () => context.read<QuranAudioCubit>().playNext(),
+                color: textPrimary,
+                isDark: isDark,
               ),
-              // Download (surah only)
+              // Download (surah mode only)
               if (isSurah)
                 _ControlBtn(
                   icon: Icons.download_outlined,
@@ -336,15 +411,14 @@ class _PlayerSheetContent extends StatelessWidget {
                       : () => context
                           .read<QuranAudioCubit>()
                           .downloadSurah(surahNum),
-                  color: isDark
-                      ? const Color(0xFFEBD9A6)
-                      : AppColors.textPrimaryLight,
+                  color: textPrimary,
+                  isDark: isDark,
                 ),
             ],
           ),
-          // Row 5: Download progress
+          // ── Row 5: Download progress bar ──────────────────────────────
           if (isDownloading) ...[
-            SizedBox(height: 8.h),
+            SizedBox(height: 6.h),
             Row(
               children: [
                 Expanded(
@@ -376,6 +450,12 @@ class _PlayerSheetContent extends StatelessWidget {
     );
   }
 
+  String _speedLabel(double speed) {
+    if (speed == 1.0) return '1×';
+    if (speed == speed.truncateToDouble()) return '${speed.toInt()}×';
+    return '$speed×';
+  }
+
   void _showReciterPicker(BuildContext context) {
     final cubit = context.read<QuranAudioCubit>();
     showModalBottomSheet(
@@ -394,11 +474,13 @@ class _ControlBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
   final Color color;
+  final bool isDark;
 
   const _ControlBtn({
     required this.icon,
     required this.onTap,
     required this.color,
+    required this.isDark,
   });
 
   @override
@@ -407,7 +489,11 @@ class _ControlBtn extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: EdgeInsets.all(8.r),
-        child: Icon(icon, color: onTap == null ? color.withAlpha(80) : color, size: 22.r),
+        child: Icon(
+          icon,
+          color: onTap == null ? color.withAlpha(60) : color,
+          size: 22.r,
+        ),
       ),
     );
   }
@@ -429,14 +515,12 @@ class _ErrorBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style:
-                  TextStyle(color: AppColors.error, fontSize: 13.sp),
+              style: TextStyle(color: AppColors.error, fontSize: 13.sp),
             ),
           ),
           GestureDetector(
             onTap: () => context.read<QuranAudioCubit>().stop(),
-            child: Icon(Icons.close,
-                size: 18.r, color: AppColors.error),
+            child: Icon(Icons.close, size: 18.r, color: AppColors.error),
           ),
         ],
       ),

@@ -5,11 +5,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:qcf_quran/qcf_quran.dart';
 import '../../../../core/di/injection_container.dart';
+import '../../../../core/state/quran_appearance_cubit.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/mushaf_entities.dart';
 import '../cubit/mushaf_cubit.dart';
 import '../../../quran_audio/presentation/cubit/quran_audio_cubit.dart';
 import '../../../quran_audio/presentation/widgets/audio_player_sheet.dart';
+import '../../../quran_audio/presentation/widgets/reciter_picker_sheet.dart';
+import '../../../tafsir/presentation/widgets/tafsir_sheet.dart';
 
 // ─── Constants ───
 
@@ -58,16 +61,12 @@ class _MushafViewerPageState extends State<MushafViewerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (_) => sl<MushafCubit>()
-            ..initialize(startPage: widget.initialPage),
-        ),
-        BlocProvider(
-          create: (_) => sl<QuranAudioCubit>()..loadReciters(),
-        ),
-      ],
+    // QuranAudioCubit is an app-wide singleton (provided in main.dart) so
+    // background playback survives this page being popped — only MushafCubit
+    // (page navigation/highlighting state) is scoped to this page.
+    return BlocProvider(
+      create: (_) => sl<MushafCubit>()
+        ..initialize(startPage: widget.initialPage),
       child: _MushafContent(surahId: widget.surahId),
     );
   }
@@ -93,6 +92,8 @@ class _MushafContentState extends State<_MushafContent> {
   // Track previous audio state to avoid reacting to position-only updates.
   int? _prevPlayingSurah;
   int? _prevPlayingAyah;
+  // The mushaf page currently being read by audio (updated in _onAudioAdvanced).
+  int? _currentAudioPage;
   final _selectedAyah = ValueNotifier<(int, int)?>(null);
 
   void _goToPage(int page) {
@@ -131,12 +132,15 @@ class _MushafContentState extends State<_MushafContent> {
     if (s.isSurah) {
       // Surah mode: turn to the first page of the surah when surah changes.
       final surahPage = ms.surahFirstPages[s.surahNum];
-      if (surahPage != null && surahPage > currentPage) {
-        _pageController?.animateToPage(
-          surahPage - 1,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
+      if (surahPage != null) {
+        _currentAudioPage = surahPage;
+        if (surahPage > currentPage) {
+          _pageController?.animateToPage(
+            surahPage - 1,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        }
       }
       return;
     }
@@ -149,12 +153,20 @@ class _MushafContentState extends State<_MushafContent> {
         ) ??
         false;
     if (!onCurrentPage && currentPage < _totalPages) {
+      _currentAudioPage = currentPage + 1;
       _pageController?.animateToPage(
         currentPage, // 0-based index of next page
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOut,
       );
+    } else {
+      _currentAudioPage = currentPage;
     }
+  }
+
+  void _goToAudioPage() {
+    final page = _currentAudioPage;
+    if (page != null) _goToPage(page);
   }
 
   @override
@@ -224,6 +236,7 @@ class _MushafContentState extends State<_MushafContent> {
                 },
                 onHizbDismissed: () => setState(() => _hizbToShow = null),
                 onGoToPage: _goToPage,
+                onGoToAudioPage: _goToAudioPage,
                 selectedAyah: _selectedAyah,
               );
             }
@@ -255,6 +268,7 @@ class _ReaderView extends StatelessWidget {
   final VoidCallback onShowPanel;
   final VoidCallback onHizbDismissed;
   final void Function(int page) onGoToPage;
+  final VoidCallback onGoToAudioPage;
   final ValueNotifier<(int, int)?> selectedAyah;
 
   const _ReaderView({
@@ -267,6 +281,7 @@ class _ReaderView extends StatelessWidget {
     required this.onShowPanel,
     required this.onHizbDismissed,
     required this.onGoToPage,
+    required this.onGoToAudioPage,
     required this.selectedAyah,
   });
 
@@ -296,8 +311,10 @@ class _ReaderView extends StatelessWidget {
     final juzNum = pageData?.juzNumber ?? 1;
 
     return Scaffold(
+      // Matches the Mushaf page background (_MushafPageWidget.pageBg) so the
+      // area behind the status bar doesn't show a different-colored seam.
       backgroundColor:
-          isDark ? const Color(0xFF0F0D08) : const Color(0xFFEDE8D5),
+          isDark ? const Color(0xFF1C1509) : const Color(0xFFFBF6E8),
       drawer: _MushafDrawer(state: state, onGoToPage: onGoToPage),
       body: SafeArea(
         top: false,
@@ -350,10 +367,14 @@ class _ReaderView extends StatelessWidget {
                 ),
               ),
             ),
-            if (showPanel) ...[
-              // _AyahBar(mushafState: state),
-              AudioPlayerSheet(surahNames: surahNames),
-            ],
+            if (showPanel)
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: AudioPlayerSheet(
+                  surahNames: surahNames,
+                  onGoToCurrentPage: onGoToAudioPage,
+                ),
+              ),
             // Permanent header bar — fixed at top, layered above everything
             IgnorePointer(
               child: SafeArea(
@@ -663,32 +684,44 @@ class _AyahTapSheet extends StatelessWidget {
             buildWhen: (p, c) =>
                 (p is QuranAudioPlaying) != (c is QuranAudioPlaying) ||
                 (p is QuranAudioPaused) != (c is QuranAudioPaused) ||
-                (p is QuranAudioPlaying && c is QuranAudioPlaying &&
+                (p is QuranAudioPlaying &&
+                    c is QuranAudioPlaying &&
                     (p.surahNum != c.surahNum || p.ayahNum != c.ayahNum)),
             builder: (context, audioState) {
               if (audioState is! QuranAudioPlaying &&
                   audioState is! QuranAudioPaused) {
                 return const SizedBox.shrink();
               }
-              final playing = audioState is QuranAudioPlaying ? audioState : null;
-              final paused = audioState is QuranAudioPaused ? audioState : null;
+              final playing =
+                  audioState is QuranAudioPlaying ? audioState : null;
+              final paused =
+                  audioState is QuranAudioPaused ? audioState : null;
               final isPlaying = playing != null;
               final sNum = playing?.surahNum ?? paused!.surahNum;
               final aNum = playing?.ayahNum ?? paused?.ayahNum;
-              final isSurahMode = playing?.isSurah ?? paused?.isSurah ?? true;
+              final isSurahMode =
+                  playing?.isSurah ?? paused?.isSurah ?? true;
               final reciterName =
                   playing?.reciter.arabicName ?? paused!.reciter.arabicName;
-              final sName = mushafState.surahInfo(sNum).arabicName
-                  .replaceAll('سُورَةُ', '').replaceAll('سُورَة', '').trim();
+              final sName = mushafState
+                  .surahInfo(sNum)
+                  .arabicName
+                  .replaceAll('سُورَةُ', '')
+                  .replaceAll('سُورَة', '')
+                  .trim();
               final displayText = isSurahMode
                   ? sName
                   : '$sName  •  آية ${_toArabicNum(aNum ?? 1)}';
+              final cubit = context.read<QuranAudioCubit>();
+
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SizedBox(height: 14.h),
-                  Divider(color: isDark ? Colors.white12 : Colors.black12),
-                  SizedBox(height: 8.h),
+                  Divider(
+                      color: isDark ? Colors.white12 : Colors.black12),
+                  SizedBox(height: 10.h),
+                  // ─ Row 1: icon + reciter (tappable) + speed + stop ─
                   Row(
                     textDirection: TextDirection.rtl,
                     children: [
@@ -704,53 +737,172 @@ class _AyahTapSheet extends StatelessWidget {
                       ),
                       SizedBox(width: 10.w),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              reciterName,
-                              style: TextStyle(
-                                  fontSize: 11.sp,
-                                  color: textSec,
-                                  fontFamily: 'Cairo'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              displayText,
-                              style: TextStyle(
-                                  fontSize: 12.sp,
-                                  color: textPrimary,
-                                  fontFamily: 'Cairo',
-                                  fontWeight: FontWeight.w600),
-                            ),
-                          ],
+                        child: GestureDetector(
+                          onTap: () => _showReciterPicker(context, cubit),
+                          child: Row(
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              Icon(Icons.keyboard_arrow_down_rounded,
+                                  size: 16.r, color: AppColors.primary),
+                              SizedBox(width: 2.w),
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      reciterName,
+                                      style: TextStyle(
+                                          fontSize: 11.sp,
+                                          color: textSec,
+                                          fontFamily: 'Cairo'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      displayText,
+                                      style: TextStyle(
+                                          fontSize: 12.sp,
+                                          color: textPrimary,
+                                          fontFamily: 'Cairo',
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(
-                          isPlaying ? Icons.pause_circle_filled_rounded
-                              : Icons.play_circle_filled_rounded,
-                          color: AppColors.primary,
-                          size: 32.r,
+                      // Speed badge
+                      ValueListenableBuilder<double>(
+                        valueListenable: cubit.playbackSpeedNotifier,
+                        builder: (_, speed, _) => GestureDetector(
+                          onTap: cubit.cyclePlaybackSpeed,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 7.w, vertical: 3.h),
+                            margin: EdgeInsets.symmetric(horizontal: 4.w),
+                            decoration: BoxDecoration(
+                              color: speed != 1.0
+                                  ? AppColors.primary.withAlpha(25)
+                                  : (isDark
+                                      ? Colors.white.withAlpha(15)
+                                      : Colors.black.withAlpha(10)),
+                              borderRadius: BorderRadius.circular(6.r),
+                              border: Border.all(
+                                color: speed != 1.0
+                                    ? AppColors.primary.withAlpha(80)
+                                    : (isDark
+                                        ? Colors.white.withAlpha(30)
+                                        : Colors.black.withAlpha(20)),
+                              ),
+                            ),
+                            child: Text(
+                              _formatSpeed(speed),
+                              style: TextStyle(
+                                color: speed != 1.0
+                                    ? AppColors.primary
+                                    : textSec,
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Cairo',
+                              ),
+                            ),
+                          ),
                         ),
-                        onPressed: () {
-                          if (isPlaying) {
-                            context.read<QuranAudioCubit>().pause();
-                          } else {
-                            context.read<QuranAudioCubit>().resume();
-                          }
-                        },
-                        padding: EdgeInsets.zero,
                       ),
+                      // Stop
                       IconButton(
                         icon: Icon(Icons.stop_circle_outlined,
-                            color: textSec, size: 24.r),
+                            color: textSec, size: 26.r),
                         onPressed: () {
-                          context.read<QuranAudioCubit>().stop();
+                          cubit.stop();
                           Navigator.of(context).pop();
                         },
                         padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(
+                            minWidth: 32.r, minHeight: 32.r),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8.h),
+                  // ─ Row 2: controls ────────────────────────────────────
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      // Repeat
+                      ValueListenableBuilder<AudioRepeatMode>(
+                        valueListenable: cubit.repeatModeNotifier,
+                        builder: (_, mode, _) => _MiniCtrlBtn(
+                          icon: mode == AudioRepeatMode.repeatOne
+                              ? Icons.repeat_one
+                              : Icons.repeat,
+                          color: mode == AudioRepeatMode.repeatOne
+                              ? AppColors.primary
+                              : textSec,
+                          onTap: () => cubit.setAudioRepeatMode(
+                              mode == AudioRepeatMode.none
+                                  ? AudioRepeatMode.repeatOne
+                                  : AudioRepeatMode.none),
+                        ),
+                      ),
+                      // Prev
+                      _MiniCtrlBtn(
+                        icon: Icons.skip_previous_rounded,
+                        color: textPrimary,
+                        onTap: cubit.playPrev,
+                      ),
+                      if (isSurahMode)
+                        _MiniCtrlBtn(
+                          icon: Icons.replay_10,
+                          color: textPrimary,
+                          onTap: () {
+                            if (playing != null) {
+                              final np = playing.position -
+                                  const Duration(seconds: 10);
+                              cubit.seek(
+                                  np < Duration.zero ? Duration.zero : np);
+                            }
+                          },
+                        ),
+                      // Play / Pause (large)
+                      GestureDetector(
+                        onTap: isPlaying ? cubit.pause : cubit.resume,
+                        child: Container(
+                          width: 42.r,
+                          height: 42.r,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.white,
+                            size: 22.r,
+                          ),
+                        ),
+                      ),
+                      if (isSurahMode)
+                        _MiniCtrlBtn(
+                          icon: Icons.forward_10,
+                          color: textPrimary,
+                          onTap: () {
+                            if (playing != null &&
+                                playing.duration != null) {
+                              final np = playing.position +
+                                  const Duration(seconds: 10);
+                              cubit.seek(np > playing.duration!
+                                  ? playing.duration!
+                                  : np);
+                            }
+                          },
+                        ),
+                      // Next
+                      _MiniCtrlBtn(
+                        icon: Icons.skip_next_rounded,
+                        color: textPrimary,
+                        onTap: cubit.playNext,
                       ),
                     ],
                   ),
@@ -837,6 +989,19 @@ class _AyahTapSheet extends StatelessWidget {
                   );
                 },
               ),
+              _TapSheetAction(
+                icon: Icons.menu_book_rounded,
+                label: 'تفسير',
+                onTap: () {
+                  Navigator.of(context).pop();
+                  showTafsirSheet(
+                    context,
+                    surahId: surahId,
+                    ayahNum: ayahNum,
+                    surahName: surahName,
+                  );
+                },
+              ),
             ],
           ),
         ],
@@ -887,6 +1052,53 @@ class _TapSheetAction extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Mini player helpers (used by _AyahTapSheet) ───
+
+String _formatSpeed(double speed) {
+  if (speed == 1.0) return '1×';
+  if (speed == speed.truncateToDouble()) return '${speed.toInt()}×';
+  return '$speed×';
+}
+
+void _showReciterPicker(BuildContext context, QuranAudioCubit cubit) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    isScrollControlled: true,
+    builder: (_) => BlocProvider.value(
+      value: cubit,
+      child: const ReciterPickerSheet(),
+    ),
+  );
+}
+
+class _MiniCtrlBtn extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _MiniCtrlBtn({
+    required this.icon,
+    required this.color,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.all(6.r),
+        child: Icon(
+          icon,
+          color: onTap == null ? color.withAlpha(60) : color,
+          size: 22.r,
+        ),
       ),
     );
   }
@@ -1388,25 +1600,23 @@ class _MushafPageWidget extends StatelessWidget {
       },
     );
 
-    final pageBg = isDark ? const Color(0xFF1C1509) : const Color(0xFFFBF6E8);
+    // Mushaf reading colors are user-configurable from Settings, independent
+    // of the app's overall light/dark theme.
+    final appearance = context.watch<QuranAppearanceCubit>().state;
+    final pageBg = appearance.colorTheme.pageBackground;
+    final textColor = appearance.colorTheme.textColor;
+    final recitationColor = appearance.highlightColor.color;
 
     return ValueListenableBuilder<(int, int)?>(
       valueListenable: selectedAyah,
       builder: (ctx, selected, _) {
         // QcfPage must receive full screen width so line breaks match printed Mushaf.
-        final qcfTheme = isDark
-            ? QcfThemeData.dark().copyWith(
-                pageBackgroundColor: const Color(0xFF1C1509),
-                verseTextColor: const Color(0xFFEBD9A6),
-                verseBackgroundColor: (s, v) =>
-                    _verseHighlight(s, v, playingAyah, selected),
-              )
-            : QcfThemeData(
-                verseTextColor: const Color(0xFF1A0A00),
-                pageBackgroundColor: const Color(0xFFFBF6E8),
-                verseBackgroundColor: (s, v) =>
-                    _verseHighlight(s, v, playingAyah, selected),
-              );
+        final qcfTheme = QcfThemeData(
+          verseTextColor: textColor,
+          pageBackgroundColor: pageBg,
+          verseBackgroundColor: (s, v) => _verseHighlight(
+              s, v, playingAyah, selected, recitationColor),
+        );
 
         return ColoredBox(
           color: pageBg,
@@ -1431,21 +1641,19 @@ class _MushafPageWidget extends StatelessWidget {
     );
   }
 
-  Color? _verseHighlight(
-      int surahId, int verseNum, (int, int)? playingAyah, (int, int)? selected) {
+  Color? _verseHighlight(int surahId, int verseNum, (int, int)? playingAyah,
+      (int, int)? selected, Color recitationColor) {
     // Selected ayah (tapped) gets a distinct gold highlight
     if (selected != null && selected.$1 == surahId && selected.$2 == verseNum) {
       return isDark
           ? const Color(0xFFFFD700).withAlpha(90)
           : const Color(0xFFFFD700).withAlpha(160);
     }
-    // Playing ayah highlight
+    // Playing ayah highlight — user-configurable (Settings > appearance)
     if (playingAyah != null &&
         playingAyah.$1 == surahId &&
         playingAyah.$2 == verseNum) {
-      return isDark
-          ? const Color(0xFFFFD700).withAlpha(65)
-          : const Color(0xFFFFF176).withAlpha(210);
+      return recitationColor.withAlpha(isDark ? 110 : 210);
     }
     final bookmark = state.bookmarkFor(surahId, verseNum);
     if (bookmark == null) return null;

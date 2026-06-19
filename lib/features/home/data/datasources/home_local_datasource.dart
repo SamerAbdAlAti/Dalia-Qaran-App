@@ -24,7 +24,13 @@ class HomeLocalDatasource {
   }
 
   Future<Map<String, dynamic>> refreshLocationData() async {
-    // تجاوز last known — المستخدم طلب موقعاً دقيقاً جديداً
+    // 1. تأكد أن خدمة الموقع مفعّلة — إذا لا، أعِد Exception خاصة
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw const LocationServiceDisabledException();
+    }
+
+    // 2. تحقق من الإذن
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -34,21 +40,13 @@ class HomeLocalDatasource {
       throw Exception('تم رفض إذن الموقع');
     }
 
-    // محاولة بدقة عالية (GPS) — 20 ثانية
-    Position position;
-    try {
-      position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      ).timeout(const Duration(seconds: 20));
-    } catch (_) {
-      // احتياطي: دقة متوسطة (شبكة) — 8 ثوانٍ
-      position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
-      ).timeout(
-        const Duration(seconds: 8),
-        onTimeout: () => throw Exception('انتهت مهلة تحديد الموقع'),
-      );
-    }
+    // 3. GPS فقط (لا يحتاج إنترنت) — مهلة 30 ثانية
+    final position = await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('انتهت مهلة GPS — تأكد أن GPS مفعّل وحاول في مكان مكشوف'),
+    );
 
     await prefs.setDouble(AppConstants.keyLatitude, position.latitude);
     await prefs.setDouble(AppConstants.keyLongitude, position.longitude);
@@ -92,24 +90,14 @@ class HomeLocalDatasource {
       return last;
     }
 
-    // 2. موقع الشبكة (WiFi/خلية) — سريع جداً
-    try {
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.medium),
-      ).timeout(const Duration(seconds: 5));
-      // ignore: avoid_print
-      print('[Location] network: ${pos.latitude}, ${pos.longitude} (accuracy: ${pos.accuracy}m)');
-      return pos;
-    } catch (_) {}
-
-    // 3. GPS — أبطأ، مهلة 12 ثانية
+    // 2. GPS فقط (لا يحتاج إنترنت) — نفس منطق refreshLocationData، مهلة 30 ثانية.
+    // ملاحظة: LocationAccuracy.medium/low على Android تعتمد غالباً على
+    // Fused Location Provider الذي يفضّل الشبكة/الخلية، فلا يعمل بدون إنترنت.
     final pos = await Geolocator.getCurrentPosition(
-      locationSettings:
-          const LocationSettings(accuracy: LocationAccuracy.low),
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
     ).timeout(
-      const Duration(seconds: 12),
-      onTimeout: () => throw Exception('انتهت مهلة تحديد الموقع'),
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('انتهت مهلة GPS — تأكد أن GPS مفعّل وحاول في مكان مكشوف'),
     );
     // ignore: avoid_print
     print('[Location] GPS: ${pos.latitude}, ${pos.longitude} (accuracy: ${pos.accuracy}m)');
